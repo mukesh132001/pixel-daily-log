@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Muki’s daily log</title>
+<title>Pixel daily log</title>
+<meta name="description" content="Type your GitHub username and watch your days turn into a pixel world.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=VT323&display=swap" rel="stylesheet">
@@ -11,7 +12,7 @@
 :root{
   --bg:#cfeeff; --panel:#fffaf0; --tile:#e9f4ff; --ink:#2a2140; --ink-soft:#5b5378;
   --line:#2a2140; --shadow:rgba(42,33,64,.22); --accent:#ffd23f; --run:#f0602d;
-  --code:#26a641; --music:#d6458f; --empty:#d9e2ee;
+  --code:#26a641; --music:#d6458f; --empty:#d9e2ee; --bad:#c2352b;
   color-scheme:light;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -21,41 +22,47 @@
   :root:not([data-theme="light"]){
     --bg:#191335; --panel:#251d4a; --tile:#2f2660; --ink:#fff1d0; --ink-soft:#b8acd9;
     --line:#7a69c4; --shadow:rgba(0,0,0,.45); --accent:#ffd23f; --run:#ff8a5c;
-    --code:#5fd36f; --music:#ff7ac0; --empty:#3a3170;
+    --code:#5fd36f; --music:#ff7ac0; --empty:#3a3170; --bad:#ff7a6b;
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#191335; --panel:#251d4a; --tile:#2f2660; --ink:#fff1d0; --ink-soft:#b8acd9;
   --line:#7a69c4; --shadow:rgba(0,0,0,.45); --accent:#ffd23f; --run:#ff8a5c;
-  --code:#5fd36f; --music:#ff7ac0; --empty:#3a3170;
+  --code:#5fd36f; --music:#ff7ac0; --empty:#3a3170; --bad:#ff7a6b;
   color-scheme:dark;
 }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
 body{margin:0;background:var(--bg);color:var(--ink);
   font-family:"VT323",ui-monospace,"Courier New",monospace;font-size:1.3rem;line-height:1.2}
 h1,h2,h3{font-family:"Pixelify Sans","VT323",ui-monospace,monospace;font-weight:700;margin:0;line-height:1.05}
 a{color:inherit}
-button{font:inherit;color:inherit}
+button,input{font:inherit;color:inherit}
 :focus-visible{outline:3px dashed var(--accent);outline-offset:4px}
 
 .wrap{max-width:1100px;margin:0 auto;padding:24px 18px 48px}
-
-/* pixel frame: notched corners made from four offset shadows */
 .px{background:var(--panel);
   box-shadow:0 -4px 0 0 var(--line),0 4px 0 0 var(--line),-4px 0 0 0 var(--line),4px 0 0 0 var(--line),10px 10px 0 0 var(--shadow);
   margin:4px}
+.btn{border:0;cursor:pointer;padding:6px 14px;background:var(--panel)}
+.btn:hover{background:var(--accent);color:#2a2140}
+.btn.primary{background:var(--accent);color:#2a2140}
+.btn.primary:hover{background:var(--run);color:#fff}
+.btn[aria-pressed="true"]{background:var(--accent);color:#2a2140}
+.btn:disabled{opacity:.5;cursor:wait}
 
 .hud{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
 .hud h1{font-size:clamp(2rem,5vw,3.2rem)}
-.hud p{margin:6px 0 0;color:var(--ink-soft)}
-.stats{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.who{display:flex;align-items:center;gap:10px;margin-top:8px;color:var(--ink-soft)}
+#ava{width:40px;height:40px;image-rendering:pixelated;box-shadow:0 0 0 3px var(--line)}
+.who b{color:var(--ink);font-weight:400}
+.tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.stats{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:24px}
 .stat{padding:6px 12px;display:flex;align-items:center;gap:8px}
 .stat b{font-family:"Pixelify Sans","VT323",monospace;font-size:1.4rem}
 .chip{width:12px;height:12px;display:inline-block;flex:none}
-.sound{border:0;cursor:pointer;padding:6px 12px;background:var(--panel)}
-.sound[aria-pressed="true"]{background:var(--accent);color:#2a2140}
 
 .top{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:26px;align-items:start}
 .stage{padding:0;overflow:hidden}
@@ -65,8 +72,16 @@ button{font:inherit;color:inherit}
 .caption p{margin:4px 0 0;color:var(--ink-soft)}
 .hint{font-size:1.05rem;color:var(--ink-soft);margin-top:8px}
 
-.calbox{padding:16px}
-.calbox h2{font-size:1.35rem;margin-bottom:12px}
+.side{padding:18px}
+.side h2{font-size:1.35rem;margin-bottom:12px}
+.start p{margin:0 0 14px;color:var(--ink-soft)}
+.field{display:flex;gap:10px;flex-wrap:wrap}
+.field input,.runform input{flex:1;min-width:0;border:0;padding:8px 10px;background:var(--tile);
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line);margin:3px}
+.msg{margin-top:12px;min-height:1.3em}
+.msg.bad{color:var(--bad)}
+.small{font-size:1.05rem;color:var(--ink-soft)}
+
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .dow{text-align:center;color:var(--ink-soft);font-size:1.05rem}
 .day{position:relative;aspect-ratio:1;border:0;cursor:pointer;background:var(--tile);
@@ -78,7 +93,6 @@ button{font:inherit;color:inherit}
 .day:hover:not(:disabled){transform:translate(-2px,-2px)}
 .day[aria-pressed="true"]{background:var(--accent);color:#2a2140;transform:translate(-2px,-2px)}
 .day:disabled{cursor:not-allowed;opacity:.45}
-.day:disabled .num::after{content:" ?"}
 .day.today::after{content:"";position:absolute;inset:-9px;border:3px dashed var(--run);animation:blink 1s steps(2) infinite;pointer-events:none}
 @keyframes blink{50%{opacity:0}}
 .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:1.05rem;color:var(--ink-soft)}
@@ -90,9 +104,13 @@ button{font:inherit;color:inherit}
 .panel h2 .chip{width:14px;height:14px}
 .sub{color:var(--ink-soft);margin:0 0 12px;font-size:1.1rem}
 .panel h3{font-size:1.05rem;margin:16px 0 8px;font-weight:500}
-.acts{list-style:none;margin:0;padding:0}
-.acts li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:2px dashed var(--empty)}
-.acts li:last-child{border-bottom:0}
+.list{list-style:none;margin:0;padding:0}
+.list li{padding:6px 0;border-bottom:2px dashed var(--empty)}
+.list li:last-child{border-bottom:0}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.commit{display:block;font-size:1.05rem;color:var(--ink-soft);margin-top:2px;overflow-wrap:anywhere}
+.x{border:0;background:none;cursor:pointer;color:var(--ink-soft);padding:0 4px}
+.x:hover{color:var(--bad)}
 .muted{color:var(--ink-soft)}
 .bars{display:grid;gap:6px}
 .bar{display:grid;grid-template-columns:4.2em minmax(0,1fr) 3.6em;align-items:center;gap:8px;font-size:1.1rem}
@@ -102,18 +120,15 @@ button{font:inherit;color:inherit}
 .bar .val{text-align:right}
 .meter{display:flex;gap:4px;align-items:center}
 .meter i{width:16px;height:16px;display:block;background:var(--empty)}
-.mini{display:grid;grid-template-columns:repeat(7,12px);gap:3px}
-.mini i{width:12px;height:12px;display:block;background:var(--empty)}
-.mini i.sel{outline:2px solid var(--ink);outline-offset:1px}
-.repos{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:1.15rem}
-.repos a{text-decoration:none;border-bottom:2px solid var(--code)}
-.repos a:hover{background:var(--code);color:var(--panel)}
+.runform{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.runform .wide{grid-column:1/-1}
+.runform label{font-size:1.05rem;color:var(--ink-soft);display:flex;flex-direction:column}
+.tag{display:inline-block;background:var(--tile);padding:0 6px;margin:2px 4px 2px 0}
 
 .tape{position:relative;height:96px;background:var(--music);margin:6px 2px 14px;
   box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line)}
 .tape .label{position:absolute;left:12px;right:12px;top:10px;height:34px;background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:1.05rem;color:var(--ink-soft)}
-.tape .reel{position:absolute;top:54px;width:30px;height:30px;background:var(--panel);
-  box-shadow:inset 0 0 0 6px var(--ink)}
+.tape .reel{position:absolute;top:54px;width:30px;height:30px;background:var(--panel);box-shadow:inset 0 0 0 6px var(--ink)}
 .tape .reel.l{left:24%}.tape .reel.r{right:24%}
 .tape .reel::after{content:"";position:absolute;left:12px;top:6px;width:6px;height:18px;background:var(--ink)}
 
@@ -133,186 +148,422 @@ footer{margin-top:32px;color:var(--ink-soft);font-size:1.1rem;max-width:70ch}
 <div class="wrap">
   <header class="hud">
     <div>
-      <h1>Muki’s daily log</h1>
-      <p>Runs, code and music, one pixel day at a time.</p>
+      <h1>Pixel daily log</h1>
+      <div class="who" id="who" hidden>
+        <canvas id="ava" width="16" height="16" aria-hidden="true"></canvas>
+        <span>Playing as <b id="whoName">—</b></span>
+      </div>
+      <div class="who" id="tagline">Your code and runs, one pixel day at a time.</div>
     </div>
-    <div class="stats">
-      <div class="stat px"><span class="chip" style="background:var(--accent)"></span><span><b id="stStreak">0</b> day streak</span></div>
-      <div class="stat px"><span class="chip" style="background:var(--run)"></span><span><b id="stMiles">0</b> mi logged</span></div>
-      <div class="stat px"><span class="chip" style="background:var(--code)"></span><span><b id="stCode">0</b> code days</span></div>
-      <button class="sound px" id="sound" aria-pressed="false">Sound off</button>
+    <div class="tools">
+      <button class="btn px" id="share" hidden>Copy link</button>
+      <button class="btn px" id="switch" hidden>Change player</button>
+      <button class="btn px" id="sound" aria-pressed="false">Sound off</button>
     </div>
   </header>
 
+  <div class="stats" id="stats" hidden>
+    <div class="stat px"><span class="chip" style="background:var(--accent)"></span><span><b id="stStreak">0</b> day streak</span></div>
+    <div class="stat px"><span class="chip" style="background:var(--code)"></span><span><b id="stContrib">0</b> contributions in 4 weeks</span></div>
+    <div class="stat px" id="stYearBox"><span class="chip" style="background:var(--code)"></span><span><b id="stYear">0</b> this past year</span></div>
+    <div class="stat px"><span class="chip" style="background:var(--run)"></span><span><b id="stMiles">0</b> mi logged</span></div>
+  </div>
+
   <section class="top">
     <div class="stage px">
-      <canvas id="scene" tabindex="0" role="img" aria-label="Pixel scene of the selected day"></canvas>
+      <canvas id="scene" tabindex="0" role="img" aria-label="Pixel scene"></canvas>
       <div class="caption">
-        <h2 id="capTitle">—</h2>
-        <p id="capText">—</p>
+        <h2 id="capTitle">Press start</h2>
+        <p id="capText">Type a GitHub username to build a pixel world from real activity.</p>
         <div class="hint">Click the scene or press space to play. Use ← and → to change days.</div>
       </div>
     </div>
 
-    <div class="calbox px">
+    <div class="side px start" id="start">
+      <h2>Who’s playing?</h2>
+      <p>Type any GitHub username. The page reads public activity only, and nothing leaves your browser except requests to GitHub.</p>
+      <form class="field" id="startForm">
+        <input id="userInput" name="user" placeholder="GitHub username" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="GitHub username" required>
+        <button class="btn primary px" id="go" type="submit">Press start</button>
+      </form>
+      <div class="msg" id="msg" role="status"></div>
+    </div>
+
+    <div class="side px" id="calbox" hidden>
       <h2>Pick a day</h2>
-      <div class="cal" id="cal" role="group" aria-label="Days from Sep 28 to Oct 25"></div>
+      <div class="cal" id="cal" role="group" aria-label="The last four weeks"></div>
       <div class="legend">
-        <span><span class="chip" style="background:var(--run)"></span>Strava</span>
         <span><span class="chip" style="background:var(--code)"></span>GitHub</span>
-        <span><span class="chip" style="background:var(--music)"></span>Spotify</span>
+        <span><span class="chip" style="background:var(--run)"></span>Runs</span>
       </div>
     </div>
   </section>
 
-  <section class="panels">
-    <article class="panel px" aria-labelledby="hStrava">
-      <h2 id="hStrava"><span class="chip" style="background:var(--run)"></span>Strava</h2>
-      <p class="sub">Pace and progress</p>
-      <ul class="acts" id="stravaList"></ul>
-      <h3>Pace</h3>
-      <div class="muted" id="paceLine">Pace will show once Strava is connected.</div>
-      <h3>Weekly distance</h3>
-      <div class="bars" id="bars"></div>
-    </article>
-
+  <section class="panels" id="panels" hidden>
     <article class="panel px" aria-labelledby="hGit">
       <h2 id="hGit"><span class="chip" style="background:var(--code)"></span>GitHub</h2>
-      <p class="sub">Student at NYU, data analytics and ML</p>
+      <p class="sub" id="bio">What you did</p>
       <div class="meter" id="meter" aria-hidden="true"></div>
       <div id="meterText" style="margin-top:6px">—</div>
-      <h3>Last four weeks</h3>
-      <div class="mini" id="mini" aria-hidden="true"></div>
-      <h3>Your repos</h3>
-      <ul class="repos" id="repos"></ul>
+      <h3>Activity this day</h3>
+      <ul class="list" id="ghList"></ul>
+      <h3>Most active in (4 weeks)</h3>
+      <div id="topRepos" class="muted">—</div>
     </article>
 
-    <article class="panel px" aria-labelledby="hSpot">
-      <h2 id="hSpot"><span class="chip" style="background:var(--music)"></span>Spotify</h2>
+    <article class="panel px" aria-labelledby="hRun">
+      <h2 id="hRun"><span class="chip" style="background:var(--run)"></span>Runs</h2>
+      <p class="sub">Pace and progress</p>
+      <ul class="list" id="runList"></ul>
+      <form class="runform" id="runForm">
+        <label>Miles<input id="rMi" type="number" min="0.1" max="200" step="0.01" inputmode="decimal" required></label>
+        <label>Minutes<input id="rMin" type="number" min="1" max="2000" step="0.1" inputmode="decimal" placeholder="optional"></label>
+        <label class="wide">Name<input id="rName" maxlength="40" placeholder="Evening run"></label>
+        <button class="btn primary px wide" type="submit">Add run to this day</button>
+      </form>
+      <h3>Weekly distance</h3>
+      <div class="bars" id="bars"></div>
+      <p class="small">Runs you add are saved in this browser only. Strava login is coming next.</p>
+    </article>
+
+    <article class="panel px" aria-labelledby="hMusic">
+      <h2 id="hMusic"><span class="chip" style="background:var(--music)"></span>Music</h2>
       <p class="sub">The day’s soundtrack</p>
       <div class="tape" aria-hidden="true">
-        <div class="label">No tape loaded</div>
+        <div class="label">Coming soon</div>
         <div class="reel l"></div><div class="reel r"></div>
       </div>
-      <div class="muted">Spotify isn’t connected yet. Once it is, the day’s top tracks play on this tape and your character gets headphones.</div>
+      <div class="muted">Music arrives in a later round through Last.fm, which can record everything you play on Spotify.</div>
     </article>
   </section>
 
-  <footer>Snapshot from your Strava and GitHub screenshots on Oct 20, 2026. Distances are in miles. GitHub shows activity level, not commit details, until it’s connected live.</footer>
+  <footer>Pixel daily log reads public GitHub data: public activity covers about the last 90 days, and anonymous visitors can make about 60 GitHub requests an hour. Contribution levels come from the community-run github-contributions-api.</footer>
 </div>
 
 <script>
 (() => {
-  // ---------- data (snapshot from screenshots) ----------
-  const STRAVA = {
-    "2026-10-03":[{name:"Sat eve run",mi:3.1,type:"run"}],
-    "2026-10-12":[{name:"Afternoon run",mi:null,type:"run"}],
-    "2026-10-16":[{name:"Indoor walk",mi:null,type:"walk"}],
-    "2026-10-17":[{name:"Zone 2 tempo",mi:3.2,type:"run"}],
-    "2026-10-19":[{name:"Pace training",mi:2.1,type:"run"},{name:"Night run",mi:2.5,type:"run"}]
-  };
-  const GH = {"2026-09-30":4,"2026-10-01":2,"2026-10-09":4,"2026-10-18":4};
-  const REPOS = ["csgy6953-mp1","CSA-RISKV","IrisVisionML","Fine_tune_food","countdown-timer","LGMVIP-Web"];
+  const $ = id => document.getElementById(id);
   const GH_COLORS = ["#0e4429","#006d32","#26a641","#39d353"];
-
   const pad = n => String(n).padStart(2,"0");
   const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const TODAY = new Date(2026,9,20);
-  const TODAY_K = key(TODAY);
-  const DAYS = Array.from({length:28},(_,i)=>new Date(2026,8,28+i));
   const fmt = d => d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+  const store = {
+    get(k,f){ try{ const v=localStorage.getItem(k); return v==null?f:JSON.parse(v); }catch(e){ return f; } },
+    set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+  };
 
-  function info(d){
-    const k = key(d);
-    const acts = STRAVA[k] || [];
-    const gh = GH[k] || 0;
-    const future = d > TODAY;
-    const today = k === TODAY_K;
-    const hasRun = acts.some(a=>a.type==="run");
-    const hasWalk = acts.some(a=>a.type==="walk");
-    let mode = "rest";
-    if (future) mode = "future";
-    else if (hasRun) mode = "run";
-    else if (hasWalk) mode = "walk";
-    else if (gh) mode = "code";
-    else if (today) mode = "today";
-    return {k,d,acts,gh,future,today,mode,active: acts.length>0 || gh>0};
+  // ---------- days: last four weeks, Monday-aligned ----------
+  const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+  const TODAY_K = key(TODAY);
+  const monday = new Date(TODAY); monday.setDate(TODAY.getDate()-((TODAY.getDay()+6)%7)-21);
+  const DAYS = Array.from({length:28},(_,i)=>{ const d=new Date(monday); d.setDate(monday.getDate()+i); return d; });
+
+  // ---------- state ----------
+  let S = null; // {user, profile, contrib: Map, events: Map, yearTotal, runs}
+  let sel = DAYS.findIndex(d=>key(d)===TODAY_K);
+  const commitCache = new Map();
+
+  // ---------- GitHub ----------
+  async function getJSON(url){
+    const r = await fetch(url,{headers:{Accept:"application/vnd.github+json"}});
+    if (!r.ok){ const e=new Error("HTTP "+r.status); e.status=r.status; e.limited = r.status===403||r.status===429; throw e; }
+    return r.json();
   }
-  const INFOS = DAYS.map(info);
 
-  // ---------- stats ----------
-  const miles = Object.values(STRAVA).flat().reduce((s,a)=>s+(a.mi||0),0);
-  let streak = 0;
-  {
-    let i = INFOS.findIndex(x=>x.today);
-    if (!INFOS[i].active) i--;
-    while (i>=0 && INFOS[i].active){ streak++; i--; }
+  function describe(e){
+    const repo = e.repo && e.repo.name || "a repo";
+    const p = e.payload || {};
+    const cap = s => s ? s[0].toUpperCase()+s.slice(1) : "";
+    switch(e.type){
+      case "PushEvent": return {kind:"push", repo, head:p.head, branch:(p.ref||"").replace("refs/heads/","")};
+      case "CreateEvent": return {text: p.ref_type==="repository" ? `Created the repo ${repo}` : `Created ${p.ref_type} ${p.ref||""} in ${repo}`, repo};
+      case "DeleteEvent": return {text:`Deleted ${p.ref_type} ${p.ref||""} in ${repo}`, repo};
+      case "PullRequestEvent": return {text:`${cap(p.action)} pull request #${p.number||(p.pull_request&&p.pull_request.number)||""} in ${repo}`, repo};
+      case "PullRequestReviewEvent": return {text:`Reviewed a pull request in ${repo}`, repo};
+      case "PullRequestReviewCommentEvent": return {text:`Commented on a pull request in ${repo}`, repo};
+      case "IssuesEvent": return {text:`${cap(p.action)} issue #${p.issue&&p.issue.number||""} in ${repo}`, repo};
+      case "IssueCommentEvent": return {text:`Commented on #${p.issue&&p.issue.number||""} in ${repo}`, repo};
+      case "WatchEvent": return {text:`Starred ${repo}`, repo, light:true};
+      case "ForkEvent": return {text:`Forked ${repo}`, repo};
+      case "ReleaseEvent": return {text:`Released ${p.release&&p.release.tag_name||""} in ${repo}`, repo};
+      case "PublicEvent": return {text:`Made ${repo} public`, repo};
+      case "MemberEvent": return {text:`Joined ${repo} as a collaborator`, repo};
+      default: return {text:`${String(e.type).replace(/Event$/,"")} in ${repo}`, repo};
+    }
   }
-  document.getElementById("stStreak").textContent = streak;
-  document.getElementById("stMiles").textContent = miles.toFixed(1);
-  document.getElementById("stCode").textContent = INFOS.filter(x=>x.gh>0).length;
 
-  // ---------- calendar ----------
-  const cal = document.getElementById("cal");
-  ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(n=>{
-    const el=document.createElement("div"); el.className="dow"; el.textContent=n; cal.appendChild(el);
-  });
-  const buttons = INFOS.map((x,i)=>{
-    const b = document.createElement("button");
-    b.className = "day" + (x.today ? " today" : "");
-    b.setAttribute("aria-pressed","false");
-    b.setAttribute("aria-label", fmt(x.d) + (x.future ? ", not yet" : ""));
-    if (x.future) b.disabled = true;
-    const num = document.createElement("span"); num.className="num"; num.textContent = x.d.getDate();
-    const dots = document.createElement("span"); dots.className="dots";
-    x.acts.forEach(a=>{ const s=document.createElement("span"); s.style.background="var(--run)"; s.style.opacity = a.type==="walk" ? .55 : 1; dots.appendChild(s); });
-    if (x.gh){ const s=document.createElement("span"); s.style.background=GH_COLORS[x.gh-1]; dots.appendChild(s); }
-    b.append(num,dots);
-    b.addEventListener("click",()=>select(i,true));
-    cal.appendChild(b);
-    return b;
+  async function loadUser(name){
+    const user = name.trim().replace(/^@/,"");
+    if (!/^[a-z\d](?:[a-z\d-]{0,38})$/i.test(user)){ say("That doesn’t look like a GitHub username. Use letters, numbers and dashes.", true); return; }
+    $("go").disabled = true; say("Loading "+user+"’s world…");
+    scene.setMode({mode:"loading"});
+    let profile;
+    try { profile = await getJSON(`https://api.github.com/users/${encodeURIComponent(user)}`); }
+    catch(e){
+      $("go").disabled=false; scene.setMode({mode:"attract"});
+      if (e.status===404) say(`No GitHub user called “${user}”. Check the spelling and try again.`, true);
+      else if (e.limited) say("GitHub’s hourly limit for this network is used up. Try again in a little while.", true);
+      else say("Couldn’t reach GitHub. Check your connection and try again.", true);
+      return;
+    }
+    const login = profile.login;
+    const [contribR, eventsR] = await Promise.allSettled([
+      getJSON(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(login)}?y=last`),
+      (async () => {
+        const all=[];
+        for (let page=1; page<=3; page++){
+          let batch;
+          try { batch = await getJSON(`https://api.github.com/users/${encodeURIComponent(login)}/events/public?per_page=100&page=${page}`); }
+          catch(e){ if (page===1) throw e; break; }
+          all.push(...batch); if (batch.length<100) break;
+        }
+        return all;
+      })()
+    ]);
+
+    const events = new Map();
+    if (eventsR.status==="fulfilled"){
+      eventsR.value.forEach(ev=>{
+        const k = key(new Date(ev.created_at));
+        if (!events.has(k)) events.set(k,[]);
+        events.get(k).push(ev);
+      });
+    }
+    const contrib = new Map(); let yearTotal = null;
+    if (contribR.status==="fulfilled" && contribR.value && Array.isArray(contribR.value.contributions)){
+      contribR.value.contributions.forEach(c=>contrib.set(c.date,{count:c.count,level:c.level}));
+      yearTotal = contribR.value.total ? Object.values(contribR.value.total).reduce((a,b)=>a+b,0) : null;
+    } else {
+      events.forEach((list,k)=>{ const n=list.filter(e=>e.type!=="WatchEvent").length; if(n) contrib.set(k,{count:n,level:Math.min(4,Math.ceil(n/2))}); });
+    }
+
+    S = {user:login, profile, contrib, events, yearTotal, eventsOk: eventsR.status==="fulfilled",
+         runs: store.get("pdl:runs:"+login.toLowerCase(), {})};
+    store.set("pdl:lastUser", login);
+    try { const u=new URL(location.href); u.searchParams.set("user",login); history.replaceState(null,"",u); } catch(e){}
+    $("go").disabled=false; say("");
+    if (!S.eventsOk) say("Activity details didn’t load (GitHub’s hourly limit may be used up). Showing contribution levels only.", true);
+    showWorld();
+    blip(523,.07); setTimeout(()=>blip(659,.07),80); setTimeout(()=>blip(784,.1),160);
+  }
+
+  function say(text,bad){ const m=$("msg"); m.textContent=text; m.classList.toggle("bad",!!bad); }
+
+  // ---------- avatar, pixelated ----------
+  function drawAvatar(url){
+    const c=$("ava"), x=c.getContext("2d");
+    x.clearRect(0,0,16,16);
+    const img=new Image();
+    img.onload=()=>{ x.imageSmoothingEnabled=true; x.drawImage(img,0,0,16,16); };
+    img.src=url+(url.includes("?")?"&":"?")+"s=64";
+  }
+
+  // ---------- per-day info ----------
+  function info(i){
+    const d=DAYS[i], k=key(d);
+    const c=S.contrib.get(k)||{count:0,level:0};
+    const ev=S.events.get(k)||[];
+    const runs=S.runs[k]||[];
+    const future = d>TODAY, today = k===TODAY_K;
+    let mode="rest";
+    if (future) mode="future"; else if (runs.length) mode="run"; else if (c.count>0||ev.some(e=>e.type!=="WatchEvent")) mode="code"; else if (today) mode="today";
+    const level = c.level || (ev.length?1:0);
+    return {i,d,k,count:c.count,level,ev,runs,future,today,mode,active:runs.length>0||c.count>0};
+  }
+
+  // ---------- render world ----------
+  const cal=$("cal");
+  let buttons=[];
+  function showWorld(){
+    $("start").hidden=true; ["calbox","panels","stats","who","share","switch"].forEach(id=>$(id).hidden=false);
+    $("tagline").hidden=true;
+    $("whoName").textContent = S.profile.name ? `${S.profile.name} (@${S.user})` : "@"+S.user;
+    $("bio").textContent = S.profile.bio || "What you did";
+    drawAvatar(S.profile.avatar_url);
+    document.title = `${S.profile.name||S.user}’s pixel daily log`;
+    buildCalendar(); refreshStats(); refreshBars(); topRepos();
+    if (sel<0 || DAYS[sel]>TODAY) sel = DAYS.findIndex(d=>key(d)===TODAY_K);
+    // start on the most recent active day
+    for (let i=DAYS.findIndex(d=>key(d)===TODAY_K); i>=0; i--){ if (info(i).active || info(i).ev.length){ sel=i; break; } }
+    select(sel,false);
+  }
+
+  function buildCalendar(){
+    cal.textContent="";
+    ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(n=>{ const el=document.createElement("div"); el.className="dow"; el.textContent=n; cal.appendChild(el); });
+    buttons = DAYS.map((d,i)=>{
+      const b=document.createElement("button");
+      b.className="day"+(key(d)===TODAY_K?" today":"");
+      b.addEventListener("click",()=>select(i,true));
+      cal.appendChild(b); return b;
+    });
+    refreshTiles();
+  }
+  function refreshTiles(){
+    buttons.forEach((b,i)=>{
+      const x=info(i); b.textContent="";
+      b.disabled=x.future; b.setAttribute("aria-pressed", i===sel);
+      b.setAttribute("aria-label", fmt(x.d)+(x.future?", not yet":`, ${x.count} contributions, ${x.runs.length} runs`));
+      const num=document.createElement("span"); num.className="num"; num.textContent=x.d.getDate()+(x.future?" ?":"");
+      const dots=document.createElement("span"); dots.className="dots";
+      if (x.level){ const s=document.createElement("span"); s.style.background=GH_COLORS[x.level-1]; dots.appendChild(s); }
+      x.runs.forEach(()=>{ const s=document.createElement("span"); s.style.background="var(--run)"; dots.appendChild(s); });
+      b.append(num,dots);
+    });
+  }
+
+  function refreshStats(){
+    const infos=DAYS.map((_,i)=>info(i));
+    let i=infos.findIndex(x=>x.today), streak=0;
+    if (!infos[i].active) i--;
+    while(i>=0 && infos[i].active){ streak++; i--; }
+    $("stStreak").textContent=streak;
+    $("stContrib").textContent=infos.reduce((s,x)=>s+x.count,0);
+    $("stYearBox").hidden = S.yearTotal==null;
+    if (S.yearTotal!=null) $("stYear").textContent=S.yearTotal;
+    $("stMiles").textContent=infos.flatMap(x=>x.runs).reduce((s,r)=>s+r.mi,0).toFixed(1);
+  }
+
+  function refreshBars(){
+    const el=$("bars"); el.textContent="";
+    for(let w=0;w<4;w++){
+      const mi=DAYS.slice(w*7,w*7+7).flatMap(d=>S.runs[key(d)]||[]).reduce((s,r)=>s+r.mi,0);
+      const row=document.createElement("div"); row.className="bar"+(Math.floor(sel/7)===w?" cur":"");
+      const l=document.createElement("span"); l.className="lbl"; l.textContent=DAYS[w*7].toLocaleDateString("en-US",{month:"short",day:"numeric"});
+      const b=document.createElement("span"); b.className="blocks";
+      for(let n=0;n<Math.min(40,Math.round(mi/0.5));n++) b.appendChild(document.createElement("i"));
+      const v=document.createElement("span"); v.className="val"; v.textContent=mi.toFixed(1);
+      row.append(l,b,v); el.appendChild(row);
+    }
+  }
+
+  function topRepos(){
+    const counts=new Map();
+    S.events.forEach((list,k)=>{ if(k<key(DAYS[0])) return; list.forEach(e=>{ if(e.type==="WatchEvent") return; const r=e.repo&&e.repo.name; if(r) counts.set(r,(counts.get(r)||0)+1); }); });
+    const el=$("topRepos"); el.textContent="";
+    const top=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4);
+    if(!top.length){ el.textContent = S.eventsOk ? "No public activity in the last four weeks." : "Activity details unavailable right now."; return; }
+    top.forEach(([r,n])=>{ const a=document.createElement("a"); a.className="tag"; a.href="https://github.com/"+r; a.target="_blank"; a.rel="noopener"; a.textContent=`${r.split("/")[1]} (${n})`; el.appendChild(a); });
+  }
+
+  function summary(x){
+    if (x.future) return "This day hasn’t happened yet.";
+    const parts=[];
+    x.runs.forEach(r=>parts.push(`${r.name||"Run"} ${r.mi} mi`));
+    if (x.count) parts.push(`${x.count} contribution${x.count===1?"":"s"} on GitHub`);
+    else if (x.ev.some(e=>e.type!=="WatchEvent")) parts.push("some GitHub activity");
+    if (!parts.length) return x.today ? "Nothing yet today. Go make some pixels." : "Rest day. Recovery counts too.";
+    return parts.join(", ")+".";
+  }
+
+  function pace(r){
+    if (!r.min || !r.mi) return "";
+    const p=r.min/r.mi, m=Math.floor(p), s=Math.round((p-m)*60);
+    return `${m}:${pad(s===60?0:s)} /mi`;
+  }
+
+  function select(i,user){
+    if (!S || i<0 || i>=DAYS.length || DAYS[i]>TODAY) return;
+    sel=i; const x=info(i);
+    buttons.forEach((b,j)=>b.setAttribute("aria-pressed", j===i));
+    $("capTitle").textContent = fmt(x.d)+(x.today?" (today)":"");
+    $("capText").textContent = summary(x);
+    canvas.setAttribute("aria-label", fmt(x.d)+". "+summary(x));
+    renderGit(x); renderRuns(x); refreshBars();
+    scene.setMode(x);
+    if (user){ blip(520,.06); setTimeout(()=>blip(780,.06),60); }
+  }
+
+  function renderGit(x){
+    const meter=$("meter"); meter.textContent="";
+    for(let j=0;j<4;j++){ const c=document.createElement("i"); if(j<x.level) c.style.background=GH_COLORS[x.level-1]; meter.appendChild(c); }
+    $("meterText").textContent = x.count ? `${x.count} contribution${x.count===1?"":"s"}, level ${x.level} of 4` : "No contributions this day";
+    const ul=$("ghList"); ul.textContent="";
+    const groups=[]; // merge pushes to the same repo
+    x.ev.slice().reverse().forEach(e=>{
+      const d=describe(e);
+      if (d.kind==="push"){
+        let g=groups.find(g=>g.kind==="push"&&g.repo===d.repo);
+        if(!g){ g={kind:"push",repo:d.repo,heads:[],branches:new Set()}; groups.push(g); }
+        if (d.head) g.heads.push(d.head); if (d.branch) g.branches.add(d.branch);
+      } else groups.push(d);
+    });
+    if (!groups.length){
+      const li=document.createElement("li"); li.className="muted";
+      li.textContent = !S.eventsOk ? "Activity details unavailable right now." : x.count ? "These contributions aren’t in GitHub’s public feed (private repos, or not synced yet)." : "No public activity.";
+      ul.appendChild(li); return;
+    }
+    let budget=4;
+    groups.forEach(g=>{
+      const li=document.createElement("li");
+      const t=document.createElement("span");
+      if (g.kind==="push"){
+        const n=g.heads.length;
+        t.textContent=`Pushed ${n>1?n+" times ":""}to ${g.repo}${g.branches.size?" ("+[...g.branches].join(", ")+")":""}`;
+        li.appendChild(t);
+        g.heads.slice(0,2).forEach(sha=>{
+          if (budget<=0) return; budget--;
+          const c=document.createElement("span"); c.className="commit"; c.textContent="Loading commit…"; li.appendChild(c);
+          commitMsg(g.repo,sha).then(m=>{ c.textContent="“"+m+"”"; }).catch(e=>{ c.textContent = e.limited ? "Commit details paused: GitHub’s hourly limit." : "Commit message unavailable."; });
+        });
+      } else { t.textContent=g.text; if(g.light) t.className="muted"; li.appendChild(t); }
+      ul.appendChild(li);
+    });
+  }
+
+  async function commitMsg(repo,sha){
+    const k=repo+"@"+sha;
+    if (commitCache.has(k)) return commitCache.get(k);
+    const p = getJSON(`https://api.github.com/repos/${repo}/commits/${sha}`).then(d=>String(d.commit&&d.commit.message||"").split("\n")[0].slice(0,120)||"(no message)");
+    commitCache.set(k,p); p.catch(()=>commitCache.delete(k));
+    return p;
+  }
+
+  function renderRuns(x){
+    const ul=$("runList"); ul.textContent="";
+    if (!x.runs.length){ const li=document.createElement("li"); li.className="muted"; li.textContent="No runs logged this day."; ul.appendChild(li); }
+    x.runs.forEach((r,j)=>{
+      const li=document.createElement("li"); li.className="row";
+      const n=document.createElement("span"); n.textContent=r.name||"Run";
+      const right=document.createElement("span");
+      right.textContent=`${r.mi.toFixed(2)} mi${pace(r)?", "+pace(r):""}`;
+      const del=document.createElement("button"); del.className="x"; del.type="button"; del.textContent="×"; del.setAttribute("aria-label","Remove "+(r.name||"run"));
+      del.addEventListener("click",()=>{ x.runs.splice(j,1); if(!x.runs.length) delete S.runs[x.k]; saveRuns(); select(sel,false); refreshTiles(); refreshStats(); });
+      right.appendChild(del);
+      li.append(n,right); ul.appendChild(li);
+    });
+  }
+  function saveRuns(){ store.set("pdl:runs:"+S.user.toLowerCase(), S.runs); }
+
+  $("runForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    const mi=parseFloat($("rMi").value), min=parseFloat($("rMin").value);
+    if(!(mi>0)) return;
+    const k=key(DAYS[sel]);
+    (S.runs[k]=S.runs[k]||[]).push({mi, min: min>0?min:null, name:$("rName").value.trim().slice(0,40)});
+    saveRuns(); $("runForm").reset();
+    refreshTiles(); refreshStats(); select(sel,false);
+    blip(660,.06); setTimeout(()=>blip(990,.08),70);
   });
 
-  // ---------- github static bits ----------
-  const mini = document.getElementById("mini");
-  const miniCells = INFOS.map(x=>{
-    const c=document.createElement("i");
-    if (x.gh) c.style.background = GH_COLORS[x.gh-1];
-    if (x.future) c.style.opacity = .35;
-    mini.appendChild(c); return c;
+  $("startForm").addEventListener("submit",e=>{ e.preventDefault(); loadUser($("userInput").value); });
+  $("switch").addEventListener("click",()=>{
+    S=null; $("start").hidden=false; ["calbox","panels","stats","who","share","switch"].forEach(id=>$(id).hidden=true);
+    $("tagline").hidden=false; document.title="Pixel daily log";
+    $("capTitle").textContent="Press start"; $("capText").textContent="Type a GitHub username to build a pixel world from real activity.";
+    try{ const u=new URL(location.href); u.searchParams.delete("user"); history.replaceState(null,"",u); }catch(e){}
+    scene.setMode({mode:"attract"}); $("userInput").value=""; $("userInput").focus();
   });
-  const reposEl = document.getElementById("repos");
-  REPOS.forEach(r=>{
-    const li=document.createElement("li"); const a=document.createElement("a");
-    a.href="https://github.com/mukesh132001/"+r; a.target="_blank"; a.rel="noopener"; a.textContent=r;
-    li.appendChild(a); reposEl.appendChild(li);
-  });
-  const meter = document.getElementById("meter");
-  const meterCells = [0,1,2,3].map(()=>{ const c=document.createElement("i"); meter.appendChild(c); return c; });
-
-  // ---------- strava weekly bars ----------
-  const barsEl = document.getElementById("bars");
-  const weeks = [0,1,2,3].map(w=>{
-    const slice = INFOS.slice(w*7,w*7+7);
-    const acts = slice.flatMap(x=>x.acts);
-    return {start:slice[0].d, mi:acts.reduce((s,a)=>s+(a.mi||0),0), partial:acts.some(a=>a.mi==null)};
-  });
-  const barRows = weeks.map(w=>{
-    const row=document.createElement("div"); row.className="bar";
-    const lbl=document.createElement("span"); lbl.className="lbl";
-    lbl.textContent=w.start.toLocaleDateString("en-US",{month:"short",day:"numeric"});
-    const blocks=document.createElement("span"); blocks.className="blocks";
-    for(let i=0;i<Math.round(w.mi/0.5);i++) blocks.appendChild(document.createElement("i"));
-    const val=document.createElement("span"); val.className="val";
-    val.textContent = w.mi ? w.mi.toFixed(1)+(w.partial?"+":"") : (w.partial?"?":"0");
-    row.append(lbl,blocks,val); barsEl.appendChild(row); return row;
+  $("share").addEventListener("click",async()=>{
+    try{ await navigator.clipboard.writeText(location.href); $("share").textContent="Link copied"; }
+    catch(e){ $("share").textContent="Copy failed"; }
+    setTimeout(()=>$("share").textContent="Copy link",1600);
   });
 
   // ---------- sound ----------
   let soundOn=false, actx=null;
-  const soundBtn=document.getElementById("sound");
-  soundBtn.addEventListener("click",()=>{
-    soundOn=!soundOn; soundBtn.setAttribute("aria-pressed",soundOn); soundBtn.textContent=soundOn?"Sound on":"Sound off";
+  $("sound").addEventListener("click",()=>{
+    soundOn=!soundOn; $("sound").setAttribute("aria-pressed",soundOn); $("sound").textContent=soundOn?"Sound on":"Sound off";
     if (soundOn) blip(660,.08);
   });
   function blip(freq,dur,type="square"){
@@ -327,100 +578,50 @@ footer{margin-top:32px;color:var(--ink-soft);font-size:1.1rem;max-width:70ch}
     }catch(e){}
   }
 
-  // ---------- selection ----------
-  let sel = INFOS.findIndex(x=>x.k==="2026-10-19");
-  const capTitle=document.getElementById("capTitle"), capText=document.getElementById("capText");
-  const stravaList=document.getElementById("stravaList"), meterText=document.getElementById("meterText");
-  const canvas=document.getElementById("scene");
-
-  function summary(x){
-    if (x.future) return "This day hasn’t happened yet.";
-    const parts=[];
-    x.acts.forEach(a=>parts.push(a.name+(a.mi!=null?` ${a.mi} mi`:"")));
-    if (x.gh) parts.push("pushed code to GitHub");
-    if (!parts.length) return x.today ? "Nothing logged yet today. Go make some pixels." : "Rest day. Recovery counts too.";
-    return parts.join(", ") + ".";
-  }
-
-  function select(i, user){
-    if (i<0 || i>=INFOS.length || INFOS[i].future) return;
-    sel=i; const x=INFOS[i];
-    buttons.forEach((b,j)=>b.setAttribute("aria-pressed", j===i));
-    miniCells.forEach((c,j)=>c.classList.toggle("sel", j===i));
-    barRows.forEach((r,j)=>r.classList.toggle("cur", j===Math.floor(i/7)));
-    capTitle.textContent = fmt(x.d) + (x.today?" (today)":"");
-    capText.textContent = summary(x);
-    canvas.setAttribute("aria-label", fmt(x.d)+". "+summary(x));
-
-    stravaList.textContent="";
-    if (!x.acts.length){
-      const li=document.createElement("li"); li.className="muted"; li.textContent="No activity logged."; stravaList.appendChild(li);
-    } else x.acts.forEach(a=>{
-      const li=document.createElement("li");
-      const n=document.createElement("span"); n.textContent=a.name;
-      const m=document.createElement("span"); m.className=a.mi==null?"muted":""; m.textContent=a.mi==null?"distance not shown":a.mi.toFixed(1)+" mi";
-      li.append(n,m); stravaList.appendChild(li);
-    });
-
-    meterCells.forEach((c,j)=>c.style.background = j<x.gh ? GH_COLORS[x.gh-1] : "");
-    meterText.textContent = x.gh ? `Activity level ${x.gh} of 4` : "No contributions this day";
-
-    scene.setMode(x);
-    if (user){ blip(520,.06); setTimeout(()=>blip(780,.06),60); }
-  }
-
   document.addEventListener("keydown",e=>{
-    if (e.target.closest && e.target.closest("a")) return;
-    if (e.key==="ArrowRight"){ e.preventDefault(); select(sel+1,true); buttons[sel].focus({preventScroll:true}); }
-    else if (e.key==="ArrowLeft"){ e.preventDefault(); select(sel-1,true); buttons[sel].focus({preventScroll:true}); }
+    if (e.target.matches && e.target.matches("input,a,textarea")) return;
+    if (e.key==="ArrowRight"&&S){ e.preventDefault(); select(sel+1,true); buttons[sel]&&buttons[sel].focus({preventScroll:true}); }
+    else if (e.key==="ArrowLeft"&&S){ e.preventDefault(); select(sel-1,true); buttons[sel]&&buttons[sel].focus({preventScroll:true}); }
     else if ((e.key===" "||e.key==="Enter") && e.target===canvas){ e.preventDefault(); scene.action(); }
   });
-  canvas.addEventListener("click",()=>scene.action());
 
   // ---------- pixel scene ----------
+  const canvas=$("scene");
+  canvas.addEventListener("click",()=>scene.action());
   const scene = (() => {
     const W=192,H=108, ctx=canvas.getContext("2d");
     canvas.width=W; canvas.height=H;
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     const PAL = {
       night:{sky:["#1b1442","#2a1d5c","#3d2a74","#5a3a86"],orb:"#fff1d0",far:"#2e2563",bld:"#231b4f",win:"#ffd23f",grass:"#2f7a3e",grassTop:"#4fa356",track:"#9c4436",lane:"#e9b8a6",field:"#2a6a37",glow:"#39d353",tint:"rgba(10,6,30,.6)"},
       day:{sky:["#7fc8ff","#9fd8ff","#c2e8ff","#ffe3b8"],orb:"#ffd23f",far:"#8dbbe2",bld:"#6b9bd0",win:"#d9eeff",grass:"#4fae4a",grassTop:"#7bd160",track:"#d0603f",lane:"#ffe6d6",field:"#46a043",glow:"#26a641",tint:"rgba(40,40,80,.45)"}
     };
-    const isNight = () => {
-      const t=document.documentElement.getAttribute("data-theme");
-      if (t==="dark") return true; if (t==="light") return false;
-      return matchMedia("(prefers-color-scheme: dark)").matches;
-    };
-    let P = PAL[isNight()?"night":"day"];
-    const refreshPal = () => { P = PAL[isNight()?"night":"day"]; };
+    const isNight=()=>{ const t=document.documentElement.getAttribute("data-theme"); if(t==="dark")return true; if(t==="light")return false; return matchMedia("(prefers-color-scheme: dark)").matches; };
+    let P=PAL[isNight()?"night":"day"];
+    const refreshPal=()=>{ P=PAL[isNight()?"night":"day"]; };
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change",refreshPal);
     new MutationObserver(refreshPal).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 
-    const C = {H:"#2b1b14",S:"#c98a5c",T:"#ff7a45",P:"#2a2140",K:"#fff1d0"};
-    const SPR = {
+    const C={H:"#2b1b14",S:"#c98a5c",T:"#ff7a45",P:"#2a2140",K:"#fff1d0"};
+    const SPR={
       run1:["..HHH...","..HSS...","..SSS...","...S....",".TTTTS..","S.TTT...","..PPP...","..P.P...",".P...P..","K.....K."],
       run2:["..HHH...","..HSS...","..SSS...","...S....","..TTT...","..STTS..","..PPP...","...PP...","...PP...","...KK..."],
       idle:["..HHH...","..HSS...","..SSS...","...S....",".TTTTT..","S.TTT.S.","..PPP...","..P.P...","..P.P...",".KK.KK.."],
       wave:["..HHH..S","..HSS..S","..SSS.T.","...S.T..",".TTTTT..","S.TTT...","..PPP...","..P.P...","..P.P...",".KK.KK.."]
     };
-    const Q = [".###.","#...#","....#","..##.","..#..",".....","..#.."];
-
-    const hash = n => { const x=Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); };
-    const stars = Array.from({length:34},(_,i)=>({x:Math.floor(hash(i)*W),y:Math.floor(hash(i+99)*58),p:Math.floor(hash(i+7)*90)}));
-
-    let mode="rest", day=null, t=0, scroll=0, speed=0, target=0, jy=0, vy=0, parts=[], wipe=0, shake=0;
+    const hash=n=>{ const x=Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); };
+    const stars=Array.from({length:34},(_,i)=>({x:Math.floor(hash(i)*W),y:Math.floor(hash(i+99)*58),p:Math.floor(hash(i+7)*90)}));
+    let mode="attract", day=null, t=0, scroll=0, speed=0, target=1.4, jy=0, vy=0, parts=[], wipe=0;
     const GROUND=90, CX=56;
 
     function setMode(x){
-      day=x; mode=x.mode; wipe=1; parts=[];
-      const mi = x.acts.reduce((s,a)=>s+(a.mi||0),0);
-      target = mode==="run" ? 1.1 + Math.min(mi,5)*0.22 : mode==="walk" ? 0.45 : 0;
-      if (reduced) target = mode==="run"||mode==="walk" ? 0.3 : 0;
+      day=x; mode=x.mode; wipe = (mode==="loading")?0:1; parts=[];
+      const mi=(x.runs||[]).reduce((s,r)=>s+r.mi,0);
+      target = mode==="run" ? 1.1+Math.min(mi,6)*0.2 : mode==="attract" ? 1.4 : mode==="loading" ? 2.6 : 0;
+      if (reduced) target = target ? 0.3 : 0;
     }
-
     function action(){
-      if (mode==="run"||mode==="walk"||mode==="today"){
+      if (mode==="run"||mode==="today"||mode==="attract"||mode==="loading"){
         if (jy===0){ vy=3.3; blip(440,.05); setTimeout(()=>blip(880,.07),50); }
       } else if (mode==="code"){
         for(let i=0;i<10;i++) spawn(86+Math.random()*4,64,(Math.random()-.5)*1.2,-.6-Math.random()*.8,GH_COLORS[Math.floor(Math.random()*4)],"sq");
@@ -428,122 +629,88 @@ footer{margin-top:32px;color:var(--ink-soft);font-size:1.1rem;max-width:70ch}
       } else if (mode==="rest"){
         for(let i=0;i<3;i++) spawn(52+i*3,70-i*4,.25,-.35,P.orb,"z");
         blip(220,.12,"triangle");
-      } else if (mode==="future"){ shake=14; blip(160,.1); }
-    }
-
-    function spawn(x,y,vx,vy2,color,kind){ parts.push({x,y,vx,vy:vy2,color,kind,life:110}); }
-
-    const px = (x,y,w,h,c) => { ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),w,h); };
-    function sprite(s,x,y,sc,shirt){
-      for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
-        const ch=s[r][c]; if(ch===".") continue;
-        px(x+c*sc,y+r*sc,sc,sc, ch==="T"&&shirt?shirt:C[ch]);
       }
     }
-    function glyph(g,x,y,sc,c){ for(let r=0;r<g.length;r++) for(let k=0;k<g[r].length;k++) if(g[r][k]==="#") px(x+k*sc,y+r*sc,sc,sc,c); }
+    function spawn(x,y,vx,vy2,color,kind){ parts.push({x,y,vx,vy:vy2,color,kind,life:110}); }
+    const px=(x,y,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),w,h); };
+    function sprite(s,x,y,sc,shirt){ for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){ const ch=s[r][c]; if(ch===".")continue; px(x+c*sc,y+r*sc,sc,sc,ch==="T"&&shirt?shirt:C[ch]); } }
 
     function drawWorld(){
       const bandH=17;
       P.sky.forEach((c,i)=>px(0,i*bandH,W,bandH+1,c));
-      for(let i=1;i<P.sky.length;i++) for(let x=0;x<W;x+=2) px(x+((i)%2),i*bandH-1,1,1,P.sky[i]);
-      if (isNight()){
-        stars.forEach(s=>{ if(reduced || (t+s.p)%90>6) px(s.x,s.y,1,1,P.orb); });
-        px(150,10,10,10,P.orb); px(154,10,6,6,P.sky[0]);
-      } else {
-        px(148,9,12,12,P.orb); px(146,11,16,8,P.orb); px(150,7,8,16,P.orb);
-      }
-      const fo = scroll*0.15;
-      for(let x=0;x<W;x+=2){
-        const h = Math.round((12+6*Math.sin((x+fo)/19)+3*Math.sin((x+fo)/7))/2)*2;
-        px(x,72-h,2,h+8,P.far);
-      }
+      for(let i=1;i<P.sky.length;i++) for(let x=0;x<W;x+=2) px(x+(i%2),i*bandH-1,1,1,P.sky[i]);
+      if (isNight()){ stars.forEach(s=>{ if(reduced||(t+s.p)%90>6) px(s.x,s.y,1,1,P.orb); }); px(150,10,10,10,P.orb); px(154,10,6,6,P.sky[0]); }
+      else { px(148,9,12,12,P.orb); px(146,11,16,8,P.orb); px(150,7,8,16,P.orb); }
+      const fo=scroll*0.15;
+      for(let x=0;x<W;x+=2){ const h=Math.round((12+6*Math.sin((x+fo)/19)+3*Math.sin((x+fo)/7))/2)*2; px(x,72-h,2,h+8,P.far); }
       const so=scroll*0.4, step=24, base=Math.floor(so/step), off=so%step;
       for(let j=-1;j<=W/step+1;j++){
         const i=base+j, h=12+Math.floor(hash(i)*18), x=j*step-off;
         px(x,78-h,18,h,P.bld);
-        for(let wy=78-h+3;wy<74;wy+=5) for(let wx=3;wx<16;wx+=5)
-          if (hash(i*13+wx*7+wy) > (isNight()?.45:.7)) px(x+wx,wy,2,2,P.win);
+        for(let wy=78-h+3;wy<74;wy+=5) for(let wx=3;wx<16;wx+=5) if(hash(i*13+wx*7+wy)>(isNight()?.45:.7)) px(x+wx,wy,2,2,P.win);
       }
       px(0,78,W,12,P.grass); px(0,78,W,2,P.grassTop);
-      for(let x=0;x<W;x+=6) px((x-scroll*0.9%6+W)%W,80,1,1,P.grassTop);
       px(0,GROUND-4,W,16,P.track);
-      const lo=scroll%14;
-      for(let x=-14;x<W+14;x+=14) px(x-lo,GROUND+3,7,1,P.lane);
+      const lo=scroll%14; for(let x=-14;x<W+14;x+=14) px(x-lo,GROUND+3,7,1,P.lane);
       px(0,GROUND+12,W,H-GROUND-12,P.field);
     }
 
     function drawChar(){
-      const top = GROUND-20-Math.round(jy);
-      if (mode==="run"){
-        const per = Math.max(3, 9-Math.round(speed*2.5));
-        const f = jy>0 ? SPR.run1 : (Math.floor(t/per)%2 ? SPR.run1 : SPR.run2);
+      const top=GROUND-20-Math.round(jy);
+      if (mode==="run"||mode==="attract"||mode==="loading"){
+        const per=Math.max(3,9-Math.round(speed*2.5));
+        const f=jy>0?SPR.run1:(Math.floor(t/per)%2?SPR.run1:SPR.run2);
         sprite(f,CX,top,2);
-        if (!reduced && t%6===0) spawn(CX+2,GROUND-2,-speed*.6,-.15,P.lane,"dust");
-        if (day && day.gh && t%14===0) spawn(CX,top+10,-speed*.8,-.2,GH_COLORS[day.gh-1],"sq");
-      } else if (mode==="walk"){
-        const f = jy>0 ? SPR.idle : (Math.floor(t/16)%2 ? SPR.idle : SPR.run2);
-        sprite(f,CX,top,2);
+        if(!reduced&&t%6===0) spawn(CX+2,GROUND-2,-speed*.6,-.15,P.lane,"dust");
+        if(mode==="run"&&day&&day.level&&t%14===0) spawn(CX,top+10,-speed*.8,-.2,GH_COLORS[day.level-1],"sq");
+        if(mode==="loading"){ for(let i=0;i<3;i++) if(Math.floor(t/10)%4>i) px(84+i*6,40,3,3,P.orb); }
       } else if (mode==="code"){
-        px(70,74,38,3,"#8a5a3c"); px(72,77,3,GROUND-77+4,"#6d452d"); px(103,77,3,GROUND-77+4,"#6d452d");
+        px(70,74,38,3,"#8a5a3c"); px(72,77,3,GROUND-73,"#6d452d"); px(103,77,3,GROUND-73,"#6d452d");
         px(78,72,18,2,"#9aa0b5"); px(80,61,14,11,"#3a3f55"); px(81,62,12,9,P.glow);
         for(let r=0;r<4;r++) if((Math.floor(t/12)+r)%3) px(82,63+r*2,3+((r*5+Math.floor(t/12))%7),1,"#0e4429");
         sprite(SPR.idle,CX-4,GROUND-20,2,"#5fa8ff");
-        if (!reduced && t%28===0) spawn(86,61,(Math.random()-.5)*.5,-.5,GH_COLORS[(day.gh||1)-1],"sq");
+        const lvl=Math.max(1,day&&day.level||1);
+        if(!reduced&&t%Math.max(10,34-lvl*6)===0) spawn(86,61,(Math.random()-.5)*.5,-.5,GH_COLORS[lvl-1],"sq");
       } else if (mode==="rest"){
-        px(44,80,44,3,"#8a5a3c"); px(46,83,3,GROUND-83+4,"#6d452d"); px(83,83,3,GROUND-83+4,"#6d452d");
-        const b = reduced?0:Math.floor(t/40)%2;
-        px(46,74+b,6,2,C.H); px(46,76+b,6,4-b,C.S);
-        px(52,75,14,5,C.T); px(66,76,8,4,C.P); px(74,77,6,3,C.S); px(80,76,4,4,C.K);
-        if (!reduced && t%70===0) spawn(54,70,.2,-.3,P.orb,"z");
+        px(44,80,44,3,"#8a5a3c"); px(46,83,3,GROUND-79,"#6d452d"); px(83,83,3,GROUND-79,"#6d452d");
+        const b=reduced?0:Math.floor(t/40)%2;
+        px(46,74+b,6,2,C.H); px(46,76+b,6,4-b,C.S); px(52,75,14,5,C.T); px(66,76,8,4,C.P); px(74,77,6,3,C.S); px(80,76,4,4,C.K);
+        if(!reduced&&t%70===0) spawn(54,70,.2,-.3,P.orb,"z");
       } else if (mode==="today"){
-        const f = Math.floor(t/22)%2 && !reduced ? SPR.wave : SPR.idle;
+        const f=Math.floor(t/22)%2&&!reduced?SPR.wave:SPR.idle;
         sprite(f,CX,top,2);
         px(78,50,22,11,"#fff1d0"); px(80,61,3,2,"#fff1d0");
-        for(let i=0;i<3;i++) if(reduced || Math.floor(t/15)%4>i) px(82+i*6,55,3,2,"#2a2140");
+        for(let i=0;i<3;i++) if(reduced||Math.floor(t/15)%4>i) px(82+i*6,55,3,2,"#2a2140");
       }
     }
-
     function drawParts(){
       parts.forEach(p=>{
         p.x+=p.vx; p.y+=p.vy; p.life--;
-        if(p.kind==="dust"){ px(p.x,p.y,1,1,p.color); }
-        else if(p.kind==="sq"){ px(p.x,p.y,3,3,p.color); }
-        else if(p.kind==="z"){ ctx.fillStyle=p.color; px(p.x,p.y,4,1,p.color); px(p.x+2,p.y+1,1,1,p.color); px(p.x+1,p.y+2,1,1,p.color); px(p.x,p.y+3,4,1,p.color); }
+        if(p.kind==="dust") px(p.x,p.y,1,1,p.color);
+        else if(p.kind==="sq") px(p.x,p.y,3,3,p.color);
+        else if(p.kind==="z"){ px(p.x,p.y,4,1,p.color); px(p.x+2,p.y+1,1,1,p.color); px(p.x+1,p.y+2,1,1,p.color); px(p.x,p.y+3,4,1,p.color); }
       });
-      parts = parts.filter(p=>p.life>0 && p.y>-5);
+      parts=parts.filter(p=>p.life>0&&p.y>-5);
     }
-
-    function drawFuture(){
-      px(0,0,W,H,P.tint);
-      const bob = reduced?0:Math.round(Math.sin(t/14)*2);
-      const sx = shake>0 ? (shake%4<2?2:-2) : 0; if(shake>0) shake--;
-      px(84+sx,36+bob,24,24,"#2a2140"); px(86+sx,38+bob,20,20,"#ffd23f");
-      glyph(Q,89+sx,41+bob,2,"#2a2140");
-    }
-
     function drawWipe(){
-      if (wipe<=0) return;
-      for(let cy=0;cy<H/8;cy++) for(let cx=0;cx<W/8;cx++)
-        if (hash(cx*31+cy*17) < wipe) px(cx*8,cy*8,8,8,P.sky[0]);
-      wipe -= reduced ? 1 : 1/14;
+      if(wipe<=0) return;
+      for(let cy=0;cy<H/8;cy++) for(let cx=0;cx<W/8;cx++) if(hash(cx*31+cy*17)<wipe) px(cx*8,cy*8,8,8,P.sky[0]);
+      wipe -= reduced?1:1/14;
     }
-
     function loop(){
-      t++;
-      speed += (target-speed)*0.06; scroll += speed;
-      if (jy>0 || vy>0){ jy+=vy; vy-=0.26; if (jy<=0){ jy=0; vy=0; } }
-      drawWorld();
-      drawChar();
-      drawParts();
-      if (mode==="future") drawFuture();
-      drawWipe();
+      t++; speed+=(target-speed)*0.06; scroll+=speed;
+      if(jy>0||vy>0){ jy+=vy; vy-=0.26; if(jy<=0){ jy=0; vy=0; } }
+      drawWorld(); drawChar(); drawParts(); drawWipe();
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
     return {setMode, action};
   })();
 
-  select(sel,false);
+  // ---------- boot ----------
+  const fromUrl = new URLSearchParams(location.search).get("user");
+  const last = store.get("pdl:lastUser", null);
+  if (fromUrl || last){ $("userInput").value = fromUrl || last; loadUser(fromUrl || last); }
 })();
 </script>
 </body>

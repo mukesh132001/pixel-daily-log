@@ -1,20 +1,37 @@
 # Pixel daily log
 
-My runs, code and music, one pixel day at a time. A single-page, 8-bit style daily log that brings together Strava, GitHub and Spotify.
+Type any GitHub username and watch the last four weeks turn into an 8-bit world. Code days put your character at a desk with commit blocks floating up. Run days send them running down the track. Rest days mean a nap on the bench.
 
-## What it does
+## Try it
 
-- Pick a day on the calendar (or use the arrow keys) and the pixel scene changes to match it.
-- **Run days:** the runner's speed scales with distance. Click the scene or press space to jump.
-- **Code days:** the character types at a desk while commit blocks float up.
-- **Rest days:** a nap on the bench.
-- Panels show Strava activities and weekly distance, GitHub activity level and repos, and a Spotify tape that is waiting to be connected.
-- Works in light mode (daytime) and dark mode (night sky).
+Open the site and type a GitHub username. You can also link straight to someone's world:
 
-## Run it
+```
+https://mukesh132001.github.io/pixel-daily-log/?user=USERNAME
+```
 
-It's one file with no build step. Open `index.html` in a browser, or view it on GitHub Pages.
+## What it shows
 
-## Data
+- **GitHub:** contribution levels for each day, public activity (pushes, new repos, pull requests, issues), and commit messages loaded when you pick a day. It also lists the repos you were most active in.
+- **Runs:** add runs by hand with distance and time, and the page works out your pace. Runs are saved in your own browser.
+- **Music:** coming in a later round through Last.fm.
 
-Version 1 uses a snapshot of my Strava and GitHub activity from Oct 20, 2026. Live syncing for Strava, GitHub and Spotify is next.
+## How it works
+
+It's one file, `index.html`, with no build step and no server.
+
+- The public GitHub REST API supplies profiles, activity and commit messages.
+- The community-run github-contributions-api supplies daily contribution levels.
+- The pixel scene is a 192x108 canvas scaled up with `image-rendering: pixelated`.
+
+## Limits
+
+- GitHub's public activity feed covers about the last 90 days and only public repos.
+- Visitors who aren't signed in get about 60 GitHub requests an hour per network.
+
+## Roadmap
+
+1. GitHub by username ✅
+2. Strava login through a small serverless backend
+3. Music through Last.fm
+4. Sharing and streak badges
