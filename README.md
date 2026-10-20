@@ -18,11 +18,36 @@ https://mukesh132001.github.io/pixel-daily-log/?user=USERNAME
 
 ## How it works
 
-It's one file, `index.html`, with no build step and no server.
+There's no build step and no server. GitHub Pages serves the files as they are.
+
+```
+pixel-daily-log/
+├── index.html        the page structure (what's on screen)
+├── css/
+│   └── style.css     colors, pixel frames, layout, dark mode
+└── js/
+    ├── main.js       starts the app, draws the calendar and panels, handles clicks
+    ├── github.js     everything that talks to GitHub
+    ├── scene.js      the pixel world: sprites, animation loop, particles
+    ├── runs.js       runs logged by hand, and pace math
+    ├── dates.js      date helpers and the four-week window
+    ├── storage.js    saving things in the browser
+    └── sound.js      retro beeps
+```
 
 - The public GitHub REST API supplies profiles, activity and commit messages.
 - The community-run github-contributions-api supplies daily contribution levels.
 - The pixel scene is a 192x108 canvas scaled up with `image-rendering: pixelated`.
+
+## Run it on your computer
+
+The JavaScript files load each other as modules, and browsers only allow that from a web server, not from double-clicking `index.html`. In the project folder, run:
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open http://localhost:8000 in your browser. Press Ctrl+C in the terminal to stop it.
 
 ## Limits
 
