@@ -80,16 +80,29 @@
     <article class="panel px" aria-labelledby="hRun">
       <h2 id="hRun"><span class="chip" style="background:var(--run)"></span>Runs</h2>
       <p class="sub">Pace and progress</p>
+      <div class="strava" id="stravaBox" hidden>
+        <button class="btn strava-btn px" id="stravaConnect" type="button" hidden>Connect with Strava</button>
+        <div id="stravaStatus" class="small" role="status"></div>
+      </div>
       <ul class="list" id="runList"></ul>
-      <form class="runform" id="runForm">
-        <label>Miles<input id="rMi" type="number" min="0.1" max="200" step="0.01" inputmode="decimal" required></label>
-        <label>Minutes<input id="rMin" type="number" min="1" max="2000" step="0.1" inputmode="decimal" placeholder="optional"></label>
-        <label class="wide">Name<input id="rName" maxlength="40" placeholder="Evening run"></label>
-        <button class="btn primary px wide" type="submit">Add run to this day</button>
-      </form>
+      <details class="addrun">
+        <summary>Add a run by hand</summary>
+        <form class="runform" id="runForm">
+          <label>Miles<input id="rMi" type="number" min="0.1" max="200" step="0.01" inputmode="decimal" required></label>
+          <label>Minutes<input id="rMin" type="number" min="1" max="2000" step="0.1" inputmode="decimal" placeholder="optional"></label>
+          <label class="wide">Name<input id="rName" maxlength="40" placeholder="Evening run"></label>
+          <button class="btn primary px wide" type="submit">Add run to this day</button>
+        </form>
+      </details>
+      <h3>Pace (4 weeks)</h3>
+      <div class="pacebox">
+        <div><span class="muted">Best</span> <b id="paceBest">—</b></div>
+        <div><span class="muted">Average</span> <b id="paceAvg">—</b></div>
+      </div>
       <h3>Weekly distance</h3>
       <div class="bars" id="bars"></div>
-      <p class="small">Runs you add are saved in this browser only. Strava login is coming next.</p>
+      <p class="small" id="runsNote">Runs you add by hand are saved in this browser only.</p>
+      <p class="small powered" id="poweredBy" hidden>Powered by Strava</p>
     </article>
 
     <article class="panel px" aria-labelledby="hMusic">

@@ -131,3 +131,17 @@ footer{margin-top:32px;color:var(--ink-soft);font-size:1.1rem;max-width:70ch}
   .day.today::after{animation:none}
   .day{transition:none}
 }
+
+/* ----- Strava (round 2) ----- */
+.strava{margin:4px 0 12px}
+.strava-btn{background:#fc5200;color:#fff;font-family:"Pixelify Sans","VT323",monospace;font-weight:700}
+.strava-btn:hover{background:#d94600;color:#fff}
+#stravaStatus{margin-top:8px}
+#stravaStatus .x{font-size:1.05rem;text-decoration:underline}
+.src{display:inline-block;font-size:.95rem;background:#fc5200;color:#fff;padding:0 5px;margin-left:6px;vertical-align:1px}
+.addrun{margin-top:10px}
+.addrun summary{cursor:pointer;color:var(--ink-soft);font-size:1.1rem}
+.addrun summary:hover{color:var(--ink)}
+.pacebox{display:flex;gap:18px;flex-wrap:wrap}
+.pacebox b{font-family:"Pixelify Sans","VT323",monospace;font-weight:700}
+.powered{margin-top:4px;color:#fc5200}

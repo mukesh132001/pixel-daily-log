@@ -1,5 +1,5 @@
 // The pixel world. A 192x108 canvas, redrawn about 60 times a second.
-// Modes: attract (start screen), loading, run, code, rest, today.
+// Modes: attract (start screen), loading, run, walk, code, rest, today.
 
 import { GH_COLORS } from "./github.js";
 import { sfx } from "./sound.js";
@@ -107,6 +107,10 @@ export function createScene(canvas) {
       if (mode === "run" && day && day.level && t % 14 === 0) spawn(CX, top + 10, -speed * 0.8, -0.2, GH_COLORS[day.level - 1], "sq");
       if (mode === "loading") for (let i = 0; i < 3; i++) if (Math.floor(t / 10) % 4 > i) px(84 + i * 6, 40, 3, 3, P.orb);
 
+    } else if (mode === "walk") {
+      const frame = jumpY > 0 ? SPRITES.idle : (Math.floor(t / 16) % 2 ? SPRITES.idle : SPRITES.run2);
+      sprite(frame, CX, top, 2);
+
     } else if (mode === "code") {
       px(70, 74, 38, 3, "#8a5a3c"); px(72, 77, 3, GROUND - 73, "#6d452d"); px(103, 77, 3, GROUND - 73, "#6d452d"); // desk
       px(78, 72, 18, 2, "#9aa0b5"); px(80, 61, 14, 11, "#3a3f55"); px(81, 62, 12, 9, P.glow);                   // laptop
@@ -169,6 +173,7 @@ export function createScene(canvas) {
     parts = [];
     const miles = (x.runs || []).reduce((s, r) => s + r.mi, 0);
     target = mode === "run" ? 1.1 + Math.min(miles, 6) * 0.2
+           : mode === "walk" ? 0.45
            : mode === "attract" ? 1.4
            : mode === "loading" ? 2.6 : 0;
     if (reduced) target = target ? 0.3 : 0;
@@ -176,7 +181,7 @@ export function createScene(canvas) {
 
   // Click or space: jump, burst commits, or snore, depending on the day.
   function action() {
-    if (mode === "run" || mode === "today" || mode === "attract" || mode === "loading") {
+    if (mode === "run" || mode === "walk" || mode === "today" || mode === "attract" || mode === "loading") {
       if (jumpY === 0) { vy = 3.3; sfx.jump(); }
     } else if (mode === "code") {
       for (let i = 0; i < 10; i++) spawn(86 + Math.random() * 4, 64, (Math.random() - 0.5) * 1.2, -0.6 - Math.random() * 0.8, GH_COLORS[Math.floor(Math.random() * 4)], "sq");

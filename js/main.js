@@ -7,14 +7,15 @@ import {
   GH_COLORS, isValidUsername, fetchProfile, fetchContributions, fetchEvents,
   levelsFromEvents, fetchCommitMessage, groupEvents
 } from "./github.js";
-import { loadRuns, saveRuns, pace, totalMiles } from "./runs.js";
+import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
+import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
 
 const $ = id => document.getElementById(id);
 const canvas = $("scene");
 const scene = createScene(canvas);
 
-// The loaded player: { user, profile, contrib, events, yearTotal, eventsOk, runs }
+// The loaded player: { user, profile, contrib, events, yearTotal, eventsOk, runs, strava, stravaError }
 let S = null;
 let sel = DAYS.findIndex(d => key(d) === TODAY_K);
 let buttons = [];
@@ -46,7 +47,11 @@ async function loadUser(name) {
   }
 
   const login = profile.login;
-  const [contribR, eventsR] = await Promise.allSettled([fetchContributions(login), fetchEvents(login)]);
+  const [contribR, eventsR, stravaR] = await Promise.allSettled([
+    fetchContributions(login),
+    fetchEvents(login),
+    loadStrava(login)
+  ]);
   const events = eventsR.status === "fulfilled" ? eventsR.value : new Map();
   const contribOk = contribR.status === "fulfilled";
 
@@ -57,7 +62,9 @@ async function loadUser(name) {
     eventsOk: eventsR.status === "fulfilled",
     contrib: contribOk ? contribR.value.byDay : levelsFromEvents(events),
     yearTotal: contribOk ? contribR.value.yearTotal : null,
-    runs: loadRuns(login)
+    runs: loadRuns(login),
+    strava: stravaR.status === "fulfilled" ? stravaR.value : null,
+    stravaError: stravaR.status === "rejected" ? stravaErrorText(stravaR.reason) : ""
   };
 
   store.set(LAST_USER, login);
@@ -74,6 +81,18 @@ async function loadUser(name) {
   sfx.start();
 }
 
+// Strava activities for this player, if this browser connected Strava to them.
+async function loadStrava(login) {
+  if (!strava.isConfigured() || !strava.isLinkedTo(login)) return null;
+  return strava.toDays(await strava.fetchActivities(DAYS[0]));
+}
+
+function stravaErrorText(e) {
+  if (e && e.needsReconnect) { strava.disconnect(); return "Strava disconnected. Connect again to bring your runs back."; }
+  if (e && e.limited) return "Strava’s request limit was reached. Your runs will be back in about 15 minutes.";
+  return "Couldn’t load your Strava runs right now.";
+}
+
 function say(text, bad) {
   const m = $("msg");
   m.textContent = text;
@@ -86,23 +105,26 @@ function info(i) {
   const d = DAYS[i], k = key(d);
   const c = S.contrib.get(k) || { count: 0, level: 0 };
   const ev = S.events.get(k) || [];
-  const runs = S.runs[k] || [];
+  const manual = S.runs[k] || [];
+  const fromStrava = (S.strava && S.strava[k]) || [];
+  const runs = [...fromStrava, ...manual];
   const future = d > TODAY, today = k === TODAY_K;
   const realActivity = ev.some(e => e.type !== "WatchEvent");
 
   let mode = "rest";
   if (future) mode = "future";
-  else if (runs.length) mode = "run";
+  else if (runs.some(r => r.type !== "walk")) mode = "run";
+  else if (runs.length) mode = "walk";
   else if (c.count > 0 || realActivity) mode = "code";
   else if (today) mode = "today";
 
-  return { i, d, k, count: c.count, level: c.level || (ev.length ? 1 : 0), ev, runs, future, today, mode, active: runs.length > 0 || c.count > 0 };
+  return { i, d, k, count: c.count, level: c.level || (ev.length ? 1 : 0), ev, runs, manual, fromStrava, future, today, mode, active: runs.length > 0 || c.count > 0 };
 }
 
 function summary(x) {
   if (x.future) return "This day hasn’t happened yet.";
   const parts = [];
-  x.runs.forEach(r => parts.push(`${r.name || "Run"} ${r.mi} mi`));
+  x.runs.forEach(r => parts.push(`${r.name || "Run"} ${r.mi.toFixed(1)} mi`));
   if (x.count) parts.push(`${x.count} contribution${x.count === 1 ? "" : "s"} on GitHub`);
   else if (x.ev.some(e => e.type !== "WatchEvent")) parts.push("some GitHub activity");
   if (!parts.length) return x.today ? "Nothing yet today. Go make some pixels." : "Rest day. Recovery counts too.";
@@ -124,6 +146,8 @@ function showWorld() {
   buildCalendar();
   refreshStats();
   refreshBars();
+  refreshPace();
+  renderStravaBox();
   renderTopRepos();
 
   // Start on the most recent day with something in it.
@@ -332,38 +356,107 @@ function renderRuns(x) {
   if (!x.runs.length) {
     const li = document.createElement("li");
     li.className = "muted";
-    li.textContent = "No runs logged this day.";
+    li.textContent = x.future ? "This day hasn’t happened yet." : "No runs logged this day.";
     ul.appendChild(li);
   }
-  x.runs.forEach((r, j) => {
-    const li = document.createElement("li");
-    li.className = "row";
-    const name = document.createElement("span");
-    name.textContent = r.name || "Run";
-    const right = document.createElement("span");
-    right.textContent = `${r.mi.toFixed(2)} mi${pace(r) ? ", " + pace(r) : ""}`;
+
+  x.fromStrava.forEach(r => ul.appendChild(runRow(r, null)));
+  x.manual.forEach((r, j) => ul.appendChild(runRow(r, () => {
+    x.manual.splice(j, 1);
+    if (!x.manual.length) delete S.runs[x.k];
+    saveRuns(S.user, S.runs);
+    refreshTiles(); refreshStats(); refreshPace(); select(sel, false);
+  })));
+}
+
+// One line in the runs list. Strava activities can't be deleted here, hand-logged ones can.
+function runRow(r, onDelete) {
+  const li = document.createElement("li");
+  li.className = "row";
+  const name = document.createElement("span");
+  name.textContent = r.name || "Run";
+  if (r.source === "strava") {
+    const tag = document.createElement("span");
+    tag.className = "src";
+    tag.textContent = r.type === "run" ? "Strava" : r.sport;
+    name.appendChild(tag);
+  }
+  const right = document.createElement("span");
+  const p = isRun(r) ? pace(r) : "";
+  right.textContent = `${r.mi.toFixed(2)} mi${p ? ", " + p : ""}`;
+  if (onDelete) {
     const del = document.createElement("button");
     del.className = "x";
     del.type = "button";
     del.textContent = "×";
     del.setAttribute("aria-label", "Remove " + (r.name || "run"));
-    del.addEventListener("click", () => {
-      x.runs.splice(j, 1);
-      if (!x.runs.length) delete S.runs[x.k];
-      saveRuns(S.user, S.runs);
-      refreshTiles(); refreshStats(); select(sel, false);
-    });
+    del.addEventListener("click", onDelete);
     right.appendChild(del);
-    li.append(name, right);
-    ul.appendChild(li);
-  });
+  }
+  li.append(name, right);
+  return li;
+}
+
+// Best and average pace across the four weeks: the "progress" part.
+function refreshPace() {
+  const all = DAYS.flatMap((d, i) => info(i).runs.map(r => ({ ...r, d })));
+  const timed = all.filter(r => isRun(r) && paceValue(r) && r.mi >= 0.5);
+  if (!timed.length) {
+    $("paceBest").textContent = "—";
+    $("paceAvg").textContent = "—";
+    return;
+  }
+  const best = timed.reduce((a, b) => (paceValue(b) < paceValue(a) ? b : a));
+  $("paceBest").textContent = `${formatPace(paceValue(best))} (${best.d.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
+  $("paceAvg").textContent = formatPace(averagePace(timed));
+}
+
+// The "Connect with Strava" button and connection status.
+function renderStravaBox() {
+  const box = $("stravaBox"), btn = $("stravaConnect"), status = $("stravaStatus");
+  box.hidden = !strava.isConfigured();
+  if (box.hidden) return;
+  status.textContent = "";
+  const conn = strava.getConnection();
+  const linkedHere = strava.isLinkedTo(S.user);
+
+  btn.hidden = !!conn;
+  btn.textContent = "Connect with Strava";
+  $("poweredBy").hidden = !(linkedHere && S.strava);
+
+  if (linkedHere) {
+    const who = conn.athlete && conn.athlete.firstname ? conn.athlete.firstname : "you";
+    status.append(`Connected to Strava as ${who}. `);
+    const out = document.createElement("button");
+    out.className = "x";
+    out.type = "button";
+    out.textContent = "Disconnect";
+    out.addEventListener("click", async () => {
+      await strava.disconnect();
+      S.strava = null;
+      S.stravaError = "";
+      refreshTiles(); refreshStats(); refreshPace(); refreshBars(); renderStravaBox(); select(sel, false);
+    });
+    status.appendChild(out);
+    if (S.stravaError) {
+      const err = document.createElement("div");
+      err.className = "bad";
+      err.style.color = "var(--bad)";
+      err.textContent = S.stravaError;
+      status.appendChild(err);
+    }
+  } else if (conn) {
+    status.textContent = `Strava in this browser is linked to @${conn.ghUser}’s world.`;
+  } else {
+    status.textContent = `Shows your real runs and pace on @${S.user}’s world. Only you see them, in this browser.`;
+  }
 }
 
 function refreshBars() {
   const el = $("bars");
   el.textContent = "";
   for (let w = 0; w < 4; w++) {
-    const mi = totalMiles(DAYS.slice(w * 7, w * 7 + 7).flatMap(d => S.runs[key(d)] || []));
+    const mi = totalMiles(DAYS.slice(w * 7, w * 7 + 7).flatMap((d, j) => info(w * 7 + j).runs));
     const row = document.createElement("div");
     row.className = "bar" + (Math.floor(sel / 7) === w ? " cur" : "");
     const l = document.createElement("span");
@@ -395,11 +488,15 @@ $("runForm").addEventListener("submit", e => {
   (S.runs[k] = S.runs[k] || []).push({ mi, min: min > 0 ? min : null, name: $("rName").value.trim().slice(0, 40) });
   saveRuns(S.user, S.runs);
   $("runForm").reset();
-  refreshTiles(); refreshStats(); select(sel, false);
+  refreshTiles(); refreshStats(); refreshPace(); select(sel, false);
   sfx.addRun();
 });
 
 $("switch").addEventListener("click", showStart);
+
+$("stravaConnect").addEventListener("click", () => {
+  if (S) strava.startConnect(S.user);
+});
 
 $("share").addEventListener("click", async () => {
   try {
@@ -430,9 +527,21 @@ document.addEventListener("keydown", e => {
 
 // ---------- start ----------
 
-const fromUrl = new URLSearchParams(location.search).get("user");
-const last = store.get(LAST_USER, null);
-if (fromUrl || last) {
-  $("userInput").value = fromUrl || last;
-  loadUser(fromUrl || last);
-}
+(async () => {
+  // Coming back from Strava's login page?
+  const back = strava.isConfigured() ? await strava.handleRedirect() : null;
+
+  const fromUrl = new URLSearchParams(location.search).get("user");
+  const who = (back && back.ghUser) || fromUrl || store.get(LAST_USER, null);
+  if (who) {
+    $("userInput").value = who;
+    await loadUser(who);
+  }
+  if (back && S) {
+    $("stravaStatus").append(document.createElement("br"),
+      back.ok ? "Strava connected. Your runs are on the calendar now." : back.error);
+    if (back.ok) sfx.start();
+  } else if (back && !back.ok) {
+    say(back.error, true);
+  }
+})();
