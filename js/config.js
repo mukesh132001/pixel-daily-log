@@ -5,4 +5,4 @@ export const STRAVA_CLIENT_ID = "289322";
 
 // Your Cloudflare Worker's address, like "https://pixel-daily-log-strava.yourname.workers.dev".
 // Leave it empty until the worker is deployed; the Strava button stays hidden until then.
-export const WORKER_URL = "";
+export const WORKER_URL = "https://pixel-daily-log-strava.mukeshethiraj0.workers.dev";
