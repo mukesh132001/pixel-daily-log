@@ -1,7 +1,7 @@
 // Entry point: loads a player, draws the calendar and panels, and wires up the buttons.
 
 import { key, fmt, TODAY, TODAY_K, DAYS } from "./dates.js";
-import { store, LAST_USER } from "./storage.js";
+import { loadProfile, saveProfile, newProfile, isMine, migrateOldPlayer } from "./profile.js";
 import { setSound, sfx } from "./sound.js";
 import {
   GH_COLORS, isValidUsername, fetchProfile, fetchContributions, fetchEvents,
@@ -17,62 +17,75 @@ fillIcons();
 const canvas = $("scene");
 const scene = createScene(canvas);
 
-// The loaded player: { user, profile, contrib, events, yearTotal, eventsOk, runs, strava, stravaError }
+// The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, runs, strava, stravaError }
+// me is your profile on your own world, or null when peeking at someone else's (read-only).
+// user and profile are the GitHub login and profile, or null without GitHub.
 let S = null;
 let sel = DAYS.findIndex(d => key(d) === TODAY_K);
 let buttons = [];
 
 const WORLD_PARTS = ["calbox", "panels", "tabs", "stats", "who", "share", "switch", "caption"];
 
-// ---------- loading a player ----------
+// ---------- loading a world ----------
 
-async function loadUser(name) {
-  const user = name.trim().replace(/^@/, "");
-  if (!isValidUsername(user)) {
+// name: a GitHub username, or null for a profile without GitHub.
+// me: your profile if this is your world, null to peek at someone else's.
+async function loadWorld(name, me) {
+  const user = name ? name.trim().replace(/^@/, "") : null;
+  if (user && !isValidUsername(user)) {
     say("That doesn’t look like a GitHub username. Use letters, numbers and dashes.", true);
     return;
   }
   $("go").disabled = true;
-  say(`Loading ${user}’s world…`);
+  say(user ? `Loading ${user}’s world…` : "Loading your world…");
   scene.setMode({ mode: "loading" });
 
-  let profile;
-  try {
-    profile = await fetchProfile(user);
-  } catch (e) {
-    $("go").disabled = false;
-    scene.setMode({ mode: "attract" });
-    if (e.status === 404) say(`No GitHub user called “${user}”. Check the spelling and try again.`, true);
-    else if (e.limited) say("GitHub’s hourly limit for this network is used up. Try again in a little while.", true);
-    else say("Couldn’t reach GitHub. Check your connection and try again.", true);
-    return;
+  let profile = null;
+  if (user) {
+    try {
+      profile = await fetchProfile(user);
+    } catch (e) {
+      showStart(user);
+      if (e.status === 404) say(`No GitHub user called “${user}”. Check the spelling and try again.`, true);
+      else if (e.limited) say("GitHub’s hourly limit for this network is used up. Try again in a little while.", true);
+      else say("Couldn’t reach GitHub. Check your connection and try again.", true);
+      return;
+    }
   }
 
-  const login = profile.login;
+  const login = profile ? profile.login : null;
+  const none = Promise.resolve(null);
   const [contribR, eventsR, stravaR] = await Promise.allSettled([
-    fetchContributions(login),
-    fetchEvents(login),
-    loadStrava(login)
+    login ? fetchContributions(login) : none,
+    login ? fetchEvents(login) : none,
+    me ? loadStrava(me.id) : none
   ]);
-  const events = eventsR.status === "fulfilled" ? eventsR.value : new Map();
-  const contribOk = contribR.status === "fulfilled";
+  const events = (eventsR.status === "fulfilled" && eventsR.value) || new Map();
+  const contribOk = contribR.status === "fulfilled" && !!contribR.value;
+
+  // Save your profile (the first time, this is where it's created), with GitHub's spelling of the name.
+  if (me && login) {
+    me = { ...me, github: login };
+    saveProfile(me);
+  }
 
   S = {
+    me,
     user: login,
     profile,
     events,
     eventsOk: eventsR.status === "fulfilled",
     contrib: contribOk ? contribR.value.byDay : levelsFromEvents(events),
     yearTotal: contribOk ? contribR.value.yearTotal : null,
-    runs: loadRuns(login),
+    runs: me ? loadRuns(me.id) : {},
     strava: stravaR.status === "fulfilled" ? stravaR.value : null,
     stravaError: stravaR.status === "rejected" ? stravaErrorText(stravaR.reason) : ""
   };
 
-  store.set(LAST_USER, login);
   try {
     const u = new URL(location.href);
-    u.searchParams.set("user", login);
+    if (login) u.searchParams.set("user", login);
+    else u.searchParams.delete("user");
     history.replaceState(null, "", u);
   } catch (e) {}
 
@@ -83,9 +96,14 @@ async function loadUser(name) {
   sfx.start();
 }
 
-// Strava activities for this player, if this browser connected Strava to them.
-async function loadStrava(login) {
-  if (!strava.isConfigured() || !strava.isLinkedTo(login)) return null;
+function loadMyWorld() {
+  const me = loadProfile();
+  return me ? loadWorld(me.github, me) : showStart();
+}
+
+// Strava activities for your profile, if this browser connected Strava to it.
+async function loadStrava(profileId) {
+  if (!strava.isConfigured() || !strava.isLinkedTo(profileId)) return null;
   return strava.toDays(await strava.fetchActivities(DAYS[0]));
 }
 
@@ -173,10 +191,20 @@ function showWorld() {
   $("start").hidden = true;
   WORLD_PARTS.forEach(id => ($(id).hidden = false));
 
-  $("whoName").textContent = S.profile.name ? `${S.profile.name} (@${S.user})` : "@" + S.user;
-  $("bio").textContent = S.profile.bio || "What you did";
-  drawAvatar(S.profile.avatar_url);
-  document.title = `${S.profile.name || S.user}’s pixel daily log`;
+  // Peeking at someone else's world is read-only: no adding runs, no Strava.
+  const peek = !S.me;
+  $("share").hidden = !S.user;
+  $("addRun").hidden = peek;
+  $("runsNote").hidden = peek;
+  $("whoVerb").textContent = peek ? "Peeking at" : "Playing as";
+  $("switch").textContent = !peek ? "Change player" : loadProfile() ? "Back to my world" : "Make your own";
+
+  const ghName = S.profile && S.profile.name;
+  const name = (S.me && S.me.name) || ghName || (S.user ? S.user : "You");
+  $("whoName").textContent = S.user ? (name !== S.user ? `${name} (@${S.user})` : "@" + S.user) : name;
+  $("bio").textContent = (S.me && S.me.about) || (S.profile && S.profile.bio) || "What you did";
+  drawAvatar(S.profile && S.profile.avatar_url);
+  document.title = `${name}’s pixel daily log`;
 
   refreshPace();
   refreshStats();
@@ -194,7 +222,8 @@ function showWorld() {
   select(sel, false);
 }
 
-function showStart() {
+// typed: what to leave in the username box (after a failed load).
+function showStart(typed = "") {
   S = null;
   document.body.classList.add("is-title");
   $("start").hidden = false;
@@ -206,14 +235,17 @@ function showStart() {
     history.replaceState(null, "", u);
   } catch (e) {}
   scene.setMode({ mode: "attract" });
-  $("userInput").value = "";
+  $("go").disabled = false;
+  $("userInput").value = typed;
   $("userInput").focus();
 }
 
 // Shrink the profile picture to 16x16; CSS scales it back up with sharp pixels.
+// Without GitHub there's no picture yet (the pixel character's face comes later).
 function drawAvatar(url) {
   const c = $("ava"), x = c.getContext("2d");
   x.clearRect(0, 0, 16, 16);
+  if (!url) return;
   const img = new Image();
   img.onload = () => { x.imageSmoothingEnabled = true; x.drawImage(img, 0, 0, 16, 16); };
   img.src = url + (url.includes("?") ? "&" : "?") + "s=64";
@@ -318,7 +350,8 @@ function renderGitHub(x) {
     if (j < x.level) c.style.background = GH_COLORS[x.level - 1];
     meter.appendChild(c);
   }
-  $("meterText").textContent = x.count ? `${x.count} contribution${x.count === 1 ? "" : "s"}, level ${x.level} of 4` : "No contributions this day";
+  $("meterText").textContent = !S.user ? "GitHub isn’t connected"
+    : x.count ? `${x.count} contribution${x.count === 1 ? "" : "s"}, level ${x.level} of 4` : "No contributions this day";
 
   const ul = $("ghList");
   ul.textContent = "";
@@ -327,7 +360,8 @@ function renderGitHub(x) {
   if (!groups.length) {
     const li = document.createElement("li");
     li.className = "muted";
-    li.textContent = !S.eventsOk ? "Activity details unavailable right now."
+    li.textContent = !S.user ? "Connect GitHub to see your coding days here."
+      : !S.eventsOk ? "Activity details unavailable right now."
       : x.count ? "These contributions aren’t in GitHub’s public feed (private repos, or not synced yet)."
       : "No public activity.";
     ul.appendChild(li);
@@ -378,7 +412,8 @@ function renderTopRepos() {
   el.textContent = "";
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
   if (!top.length) {
-    el.textContent = S.eventsOk ? "No public activity in the last four weeks." : "Activity details unavailable right now.";
+    el.textContent = !S.user ? "Connect GitHub to see your repos here."
+      : S.eventsOk ? "No public activity in the last four weeks." : "Activity details unavailable right now.";
     return;
   }
   top.forEach(([r, n]) => {
@@ -408,7 +443,7 @@ function renderRuns(x) {
   x.manual.forEach((r, j) => ul.appendChild(runRow(r, () => {
     x.manual.splice(j, 1);
     if (!x.manual.length) delete S.runs[x.k];
-    saveRuns(S.user, S.runs);
+    saveRuns(S.me.id, S.runs);
     refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   })));
 }
@@ -481,11 +516,12 @@ function refreshPace() {
 // The "Connect with Strava" button and connection status.
 function renderStravaBox() {
   const box = $("stravaBox"), btn = $("stravaConnect"), status = $("stravaStatus");
-  box.hidden = !strava.isConfigured();
+  box.hidden = !strava.isConfigured() || !S.me;
+  $("poweredBy").hidden = true;
   if (box.hidden) return;
   status.textContent = "";
   const conn = strava.getConnection();
-  const linkedHere = strava.isLinkedTo(S.user);
+  const linkedHere = strava.isLinkedTo(S.me.id);
 
   btn.hidden = !!conn;
   btn.textContent = "Connect with Strava";
@@ -513,9 +549,9 @@ function renderStravaBox() {
       status.appendChild(err);
     }
   } else if (conn) {
-    status.textContent = `Strava in this browser is linked to @${conn.ghUser}’s world.`;
+    status.textContent = "Strava in this browser is linked to a different profile.";
   } else {
-    status.textContent = `Shows your real runs and pace on @${S.user}’s world. Only you see them, in this browser.`;
+    status.textContent = "Shows your real runs and pace on your world. Only you see them, in this browser.";
   }
 }
 
@@ -542,24 +578,34 @@ function refreshBars() {
 
 // ---------- controls ----------
 
+// Until the character creator arrives, the first username typed here becomes yours.
+// After that, any other username opens as a peek.
 $("startForm").addEventListener("submit", e => {
   e.preventDefault();
-  loadUser($("userInput").value);
+  const typed = $("userInput").value.trim().replace(/^@/, "");
+  if (!isValidUsername(typed)) return say("That doesn’t look like a GitHub username. Use letters, numbers and dashes.", true);
+  const me = loadProfile();
+  loadWorld(typed, !me ? newProfile() : isMine(me, typed) ? me : null);
 });
 
 $("runForm").addEventListener("submit", e => {
   e.preventDefault();
+  if (!S || !S.me) return;
   const mi = parseFloat($("rMi").value), min = parseFloat($("rMin").value);
   if (!(mi > 0)) return;
   const k = key(DAYS[sel]);
   (S.runs[k] = S.runs[k] || []).push({ mi, min: min > 0 ? min : null, name: $("rName").value.trim().slice(0, 40) });
-  saveRuns(S.user, S.runs);
+  saveRuns(S.me.id, S.runs);
   $("runForm").reset();
   refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   sfx.addRun();
 });
 
-$("switch").addEventListener("click", showStart);
+// Your world: go back to the title screen. Peeking: back to your world, or make one.
+$("switch").addEventListener("click", () => {
+  if (S && !S.me && loadProfile()) loadMyWorld();
+  else showStart();
+});
 
 // Phone tabs: show one panel at a time (on wide screens all three show).
 document.querySelectorAll(".tab").forEach(tab => {
@@ -571,7 +617,7 @@ document.querySelectorAll(".tab").forEach(tab => {
 });
 
 $("stravaConnect").addEventListener("click", () => {
-  if (S) strava.startConnect(S.user);
+  if (S && S.me) strava.startConnect(S.me.id);
 });
 
 $("share").addEventListener("click", async () => {
@@ -607,13 +653,19 @@ document.addEventListener("keydown", e => {
   // Coming back from Strava's login page?
   const back = strava.isConfigured() ? await strava.handleRedirect() : null;
 
+  // Your profile, or one made from this browser's pre-profile data.
+  const me = loadProfile() || migrateOldPlayer();
+  if (me) strava.adopt(me);
+
+  // A shared link opens that world as a peek, unless it's your own.
   const fromUrl = new URLSearchParams(location.search).get("user");
-  const who = (back && back.ghUser) || fromUrl || store.get(LAST_USER, null);
-  if (who) {
-    $("userInput").value = who;
-    await loadUser(who);
+  if (fromUrl) {
+    $("userInput").value = fromUrl;
+    await loadWorld(fromUrl, isMine(me, fromUrl) ? me : null);
+  } else if (me) {
+    await loadWorld(me.github, me);
   }
-  if (back && S) {
+  if (back && S && S.me) {
     $("stravaStatus").append(document.createElement("br"),
       back.ok ? "Strava connected. Your runs are on the calendar now." : back.error);
     if (back.ok) sfx.start();

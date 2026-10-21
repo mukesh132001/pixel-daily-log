@@ -1,5 +1,5 @@
 // Strava: login, tokens and activities.
-// Tokens are kept in this browser only, and are linked to the GitHub player who connected them,
+// Tokens are kept in this browser only, and are linked to the profile that connected them,
 // so your Strava runs never appear on someone else's world.
 
 import { STRAVA_CLIENT_ID, WORKER_URL } from "./config.js";
@@ -14,17 +14,26 @@ const WALK_TYPES = ["Walk", "Hike"];
 
 export const isConfigured = () => !!WORKER;
 export const getConnection = () => store.get(KEY, null);
-export const isLinkedTo = user => {
+export const isLinkedTo = profileId => {
   const c = getConnection();
-  return !!(c && user && c.ghUser.toLowerCase() === user.toLowerCase());
+  return !!(c && profileId && c.owner === profileId);
 };
+
+// Connections made before profiles were linked to a GitHub username.
+// Hand them over to the profile with that username.
+export function adopt(profile) {
+  const c = getConnection();
+  if (c && !c.owner && c.ghUser && profile.github && c.ghUser.toLowerCase() === profile.github.toLowerCase()) {
+    store.set(KEY, { ...c, owner: profile.id });
+  }
+}
 
 const redirectUri = () => location.origin + location.pathname;
 
 // Step 1: send the visitor to Strava's "Authorize" page.
-export function startConnect(ghUser) {
+export function startConnect(owner) {
   const state = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, "0")).join("");
-  try { sessionStorage.setItem(STATE_KEY, JSON.stringify({ state, ghUser })); } catch (e) {}
+  try { sessionStorage.setItem(STATE_KEY, JSON.stringify({ state, owner })); } catch (e) {}
   const q = new URLSearchParams({
     client_id: STRAVA_CLIENT_ID,
     response_type: "code",
@@ -37,7 +46,7 @@ export function startConnect(ghUser) {
 }
 
 // Step 2: Strava sends them back with ?code=...  Swap it for tokens through the worker.
-// Returns null if this page load isn't a Strava return, otherwise { ghUser, ok, error }.
+// Returns null if this page load isn't a Strava return, otherwise { ok, error }.
 export async function handleRedirect() {
   const params = new URLSearchParams(location.search);
   const code = params.get("code"), error = params.get("error"), state = params.get("state");
@@ -46,17 +55,15 @@ export async function handleRedirect() {
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(STATE_KEY) || "null"); sessionStorage.removeItem(STATE_KEY); } catch (e) {}
 
-  // Tidy the address bar: drop Strava's parameters, keep the player.
+  // Tidy the address bar: drop Strava's parameters.
   const clean = new URL(location.href);
   ["code", "scope", "state", "error"].forEach(k => clean.searchParams.delete(k));
-  if (saved && saved.ghUser) clean.searchParams.set("user", saved.ghUser);
   history.replaceState(null, "", clean);
 
-  const ghUser = saved && saved.ghUser;
-  if (error) return { ghUser, ok: false, error: "You cancelled the Strava connection." };
-  if (!saved || saved.state !== state) return { ghUser, ok: false, error: "That Strava login didn’t match. Please try connecting again." };
+  if (error) return { ok: false, error: "You cancelled the Strava connection." };
+  if (!saved || saved.state !== state || !saved.owner) return { ok: false, error: "That Strava login didn’t match. Please try connecting again." };
   if (!params.get("scope") || !params.get("scope").includes("activity:read")) {
-    return { ghUser, ok: false, error: "Strava needs permission to view your activities. Please connect again and leave that box ticked." };
+    return { ok: false, error: "Strava needs permission to view your activities. Please connect again and leave that box ticked." };
   }
 
   try {
@@ -66,15 +73,15 @@ export async function handleRedirect() {
       body: JSON.stringify({ code })
     });
     if (r.status === 403) {
-      return { ghUser, ok: false, full: true,
+      return { ok: false, full: true,
         error: "Strava connections are full while Pixel daily log is in testing. Your GitHub world still works, and you can add runs by hand." };
     }
     if (!r.ok) throw new Error("token " + r.status);
     const t = await r.json();
-    store.set(KEY, { ...t, ghUser });
-    return { ghUser, ok: true };
+    store.set(KEY, { ...t, owner: saved.owner });
+    return { ok: true };
   } catch (e) {
-    return { ghUser, ok: false, error: "Couldn’t finish connecting to Strava. Please try again in a moment." };
+    return { ok: false, error: "Couldn’t finish connecting to Strava. Please try again in a moment." };
   }
 }
 
