@@ -1,6 +1,6 @@
 # Pixel daily log
 
-Type any GitHub username and watch the last four weeks turn into an 8-bit world. Code days put your character at a desk with commit blocks floating up. Run days send them running down the track. Rest days mean a nap on the bench.
+Type any GitHub username and watch the last four weeks turn into a cozy 8-bit world. Code days put your character at a desk with commit blocks floating up. Run days send them running down the track. Rest days mean a nap on the bench.
 
 ## Try it
 
@@ -9,6 +9,14 @@ Open the site and type a GitHub username. You can also link straight to someone'
 ```
 https://mukesh132001.github.io/pixel-daily-log/?user=USERNAME
 ```
+
+## The pixel world
+
+- **Time of day:** the sky follows when you actually ran or coded: sunrise for morning runs, sunset in the evening, moonlight at night.
+- **Streak flame:** a little flame and your streak count glow in the corner on streak days.
+- **Personal best:** on your fastest-pace day the runner wears gold and a "PR!" badge pops up.
+- **The ghost:** the mascot from the app icon jogs along on the title screen and drifts across the sky on rest days.
+- **Glowing calendar:** brighter tiles mean bigger days, with a preview when you hover.
 
 ## What it shows
 
@@ -32,6 +40,7 @@ pixel-daily-log/
 │   ├── strava.js     Strava login, tokens and activities
     ├── scene.js      the pixel world: sprites, animation loop, particles
 │   ├── runs.js       runs logged by hand, and pace math
+│   ├── icons.js      tiny pixel icons (shoe, laptop, flame, star, tape)
 │   ├── dates.js      date helpers and the four-week window
 │   ├── storage.js    saving things in the browser
 │   └── sound.js      retro beeps

@@ -108,7 +108,11 @@ async function tokenRequest(env, params, json, includeAthlete) {
   });
   const r = await fetch(`${STRAVA}/oauth/token`, { method: "POST", body });
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) return json({ error: "token request failed", status: r.status }, r.status === 400 || r.status === 401 ? r.status : 502);
+  if (!r.ok) {
+    // 403 at this step usually means the app has hit Strava's limit of connected athletes.
+    if (r.status === 403) return json({ error: "athlete limit", message: d.message || "" }, 403);
+    return json({ error: "token request failed", status: r.status }, r.status === 400 || r.status === 401 ? r.status : 502);
+  }
   const out = { access_token: d.access_token, refresh_token: d.refresh_token, expires_at: d.expires_at };
   if (includeAthlete && d.athlete) {
     out.athlete = { id: d.athlete.id, firstname: d.athlete.firstname, lastname: d.athlete.lastname };

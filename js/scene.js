@@ -1,35 +1,60 @@
 // The pixel world. A 192x108 canvas, redrawn about 60 times a second.
-// Modes: attract (start screen), loading, run, walk, code, rest, today.
+//
+// Modes:  attract (title screen), loading, run, walk, code, rest, today
+// Phase:  dawn, day, dusk, night. Picked from when you actually ran or coded,
+//         so a night run gets the moon and a morning run gets the sunrise.
+// Extras: streak flame (top left), "PR!" burst on your fastest-pace day,
+//         and the ghost mascot, who jogs on the title screen and haunts rest days.
 
 import { GH_COLORS } from "./github.js";
 import { sfx } from "./sound.js";
 
 const W = 192, H = 108;
-const GROUND = 90;   // y position of the runner's feet
-const CX = 56;       // x position of the character
+const GROUND = 90;   // y of the runner's feet
+const CX = 56;       // x of the character
 
-const PALETTES = {
-  night: { sky: ["#1b1442", "#2a1d5c", "#3d2a74", "#5a3a86"], orb: "#fff1d0", far: "#2e2563", bld: "#231b4f", win: "#ffd23f", grass: "#2f7a3e", grassTop: "#4fa356", track: "#9c4436", lane: "#e9b8a6", field: "#2a6a37", glow: "#39d353" },
-  day:   { sky: ["#7fc8ff", "#9fd8ff", "#c2e8ff", "#ffe3b8"], orb: "#ffd23f", far: "#8dbbe2", bld: "#6b9bd0", win: "#d9eeff", grass: "#4fae4a", grassTop: "#7bd160", track: "#d0603f", lane: "#ffe6d6", field: "#46a043", glow: "#26a641" }
+// Cozy pastel skies for each time of day.
+const PHASES = {
+  dawn:  { sky: ["#f2b8a8", "#f6cdb6", "#f9dfc4", "#fdecd4"], orb: "#ffad7a", orbY: 38, orbX: 30, stars: 0,  far: "#d9a9b8", bld: "#c695ab", win: "#ffe9c4", lit: 0.8,  grass: "#7fbf7a", grassTop: "#a6d98f", track: "#d77a5f", lane: "#ffe8dc", field: "#76b06e", glow: "#4caf6e" },
+  day:   { sky: ["#9fd2ec", "#b8e0f1", "#d2ebf2", "#f1ecd8"], orb: "#ffd77a", orbY: 9,  orbX: 148, stars: 0, far: "#a8c8de", bld: "#8fb1cf", win: "#eef7ff", lit: 0.75, grass: "#78bd6f", grassTop: "#9fd68a", track: "#d9805f", lane: "#fff0e6", field: "#6fae67", glow: "#3ea860" },
+  dusk:  { sky: ["#5b4a86", "#8a5e9a", "#cf7f8f", "#f5b48a"], orb: "#ffcf7a", orbY: 44, orbX: 150, stars: 10, far: "#6f4f86", bld: "#56406f", win: "#ffd77a", lit: 0.5, grass: "#5a8f5e", grassTop: "#79ad72", track: "#b8604f", lane: "#f3c3ae", field: "#4f7f53", glow: "#5fd17e" },
+  night: { sky: ["#211a33", "#2c2244", "#3a2c56", "#4d3866"], orb: "#fff1d6", orbY: 10, orbX: 150, stars: 34, far: "#33284d", bld: "#2a2140", win: "#ffcf6e", lit: 0.42, grass: "#2f6b45", grassTop: "#468a57", track: "#8f4a46", lane: "#d9b1a6", field: "#2a5c3d", glow: "#5fd17e" }
 };
 
 // Sprites are drawn as text: each letter is a color, dots are empty.
-const COLORS = { H: "#2b1b14", S: "#c98a5c", T: "#ff7a45", P: "#2a2140", K: "#fff1d0" };
+const COLORS = {
+  H: "#3b2a22", S: "#d39a6a", T: "#f08a5d", P: "#3d2e3f", K: "#fff1d6",
+  W: "#f7f2ff", L: "#cfc6ea", E: "#ffc95c", M: "#3d2e3f", B: "#f08a5d", O: "#f08a5d", C: "#fff1d6"
+};
 const SPRITES = {
   run1: ["..HHH...", "..HSS...", "..SSS...", "...S....", ".TTTTS..", "S.TTT...", "..PPP...", "..P.P...", ".P...P..", "K.....K."],
   run2: ["..HHH...", "..HSS...", "..SSS...", "...S....", "..TTT...", "..STTS..", "..PPP...", "...PP...", "...PP...", "...KK..."],
   idle: ["..HHH...", "..HSS...", "..SSS...", "...S....", ".TTTTT..", "S.TTT.S.", "..PPP...", "..P.P...", "..P.P...", ".KK.KK.."],
-  wave: ["..HHH..S", "..HSS..S", "..SSS.T.", "...S.T..", ".TTTTT..", "S.TTT...", "..PPP...", "..P.P...", "..P.P...", ".KK.KK.."]
+  wave: ["..HHH..S", "..HSS..S", "..SSS.T.", "...S.T..", ".TTTTT..", "S.TTT...", "..PPP...", "..P.P...", "..P.P...", ".KK.KK.."],
+  // the ghost from the app icon: sweatband, sly glowing eyes, floating sneakers
+  ghost: ["...WWWW...", "..WWWWWW..", ".BBBBBBBB.", ".WWWWWWWW.", ".WWLWWLWW.", ".WWEWWEWW.", ".WWWWWWWW.", ".WWWMMWWW.", ".WWWWWWWW.", ".WW.WW.WW."],
+  flame1: ["...f....", "..ff....", "..fff.f.", ".fffyff.", ".ffyyff.", ".fyyyyf.", "..fyyf..", "........"],
+  flame2: ["....f...", "...ff...", ".f.fff..", ".ffyfff.", ".ffyyff.", ".fyyyyf.", "..fyyf..", "........"]
+};
+const FLAME = { f: "#f08a5d", y: "#ffc95c" };
+
+// A tiny 3x5 font for numbers and "PR!".
+const FONT = {
+  0: ["###", "#.#", "#.#", "#.#", "###"], 1: [".#.", "##.", ".#.", ".#.", "###"], 2: ["###", "..#", "###", "#..", "###"],
+  3: ["###", "..#", "###", "..#", "###"], 4: ["#.#", "#.#", "###", "..#", "..#"], 5: ["###", "#..", "###", "..#", "###"],
+  6: ["###", "#..", "###", "#.#", "###"], 7: ["###", "..#", "..#", "..#", "..#"], 8: ["###", "#.#", "###", "#.#", "###"],
+  9: ["###", "#.#", "###", "..#", "###"], P: ["###", "#.#", "###", "#..", "#.."], R: ["##.", "#.#", "##.", "#.#", "#.#"],
+  "!": [".#.", ".#.", ".#.", "...", ".#."]
 };
 
 // Same input always gives the same "random" number, so buildings don't flicker.
 const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
-function isNight() {
+export function themePhase() {
   const t = document.documentElement.getAttribute("data-theme");
-  if (t === "dark") return true;
-  if (t === "light") return false;
-  return matchMedia("(prefers-color-scheme: dark)").matches;
+  if (t === "dark") return "night";
+  if (t === "light") return "day";
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "day";
 }
 
 export function createScene(canvas) {
@@ -38,26 +63,48 @@ export function createScene(canvas) {
   canvas.height = H;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let P = PALETTES[isNight() ? "night" : "day"];
-  const refreshPalette = () => { P = PALETTES[isNight() ? "night" : "day"]; };
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refreshPalette);
-  new MutationObserver(refreshPalette).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
   const stars = Array.from({ length: 34 }, (_, i) => ({ x: Math.floor(hash(i) * W), y: Math.floor(hash(i + 99) * 58), p: Math.floor(hash(i + 7) * 90) }));
 
-  let mode = "attract", day = null, t = 0, scroll = 0, speed = 0, target = 1.4;
+  let mode = "attract", day = {}, P = PHASES[themePhase()], phaseFromTheme = true;
+  let t = 0, scroll = 0, speed = 0, target = 1.4;
   let jumpY = 0, vy = 0, parts = [], wipe = 0;
+  let ghostX = -30, prTimer = 0;
+
+  // Follow light/dark changes when the day has no time of its own.
+  const refresh = () => { if (phaseFromTheme) P = PHASES[themePhase()]; };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
+  new MutationObserver(refresh).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   // ----- drawing helpers -----
   const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
-  function sprite(s, x, y, scale, shirt) {
+  function sprite(s, x, y, scale, palette = COLORS, shirt) {
     for (let r = 0; r < s.length; r++) for (let c = 0; c < s[r].length; c++) {
       const ch = s[r][c];
       if (ch === ".") continue;
-      px(x + c * scale, y + r * scale, scale, scale, ch === "T" && shirt ? shirt : COLORS[ch]);
+      px(x + c * scale, y + r * scale, scale, scale, ch === "T" && shirt ? shirt : palette[ch]);
     }
   }
-  const spawn = (x, y, vx, vy2, color, kind) => parts.push({ x, y, vx, vy: vy2, color, kind, life: 110 });
+  function text(str, x, y, color, shadow) {
+    [...String(str)].forEach((ch, i) => {
+      const g = FONT[ch];
+      if (!g) return;
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (g[r][c] === "#") {
+        if (shadow) px(x + i * 4 + c + 1, y + r + 1, 1, 1, shadow);
+        px(x + i * 4 + c, y + r, 1, 1, color);
+      }
+    });
+  }
+  const spawn = (x, y, vx, vy2, color, kind, life = 110) => parts.push({ x, y, vx, vy: vy2, color, kind, life });
+
+  // The ghost: floats, bobs, and its sneakers shuffle.
+  // scale 2 up close (title screen), scale 1 far away (drifting across the sky).
+  function ghost(x, y, k = 1) {
+    const bob = reduced ? 0 : Math.round(Math.sin(t / 10) * 1.5) * k;
+    sprite(SPRITES.ghost, x, y + bob, k);
+    const step = reduced ? 0 : Math.floor(t / 6) % 2;
+    const shoe = (sx, lift) => { px(x + sx * k, y + (11 - lift) * k + bob, 2 * k, k, COLORS.O); px(x + sx * k, y + (12 - lift) * k + bob, 2 * k, k, COLORS.C); };
+    shoe(2, step); shoe(6, 1 - step);
+  }
 
   // ----- layers -----
   function drawWorld() {
@@ -65,11 +112,14 @@ export function createScene(canvas) {
     P.sky.forEach((c, i) => px(0, i * bandH, W, bandH + 1, c));
     for (let i = 1; i < P.sky.length; i++) for (let x = 0; x < W; x += 2) px(x + (i % 2), i * bandH - 1, 1, 1, P.sky[i]);
 
-    if (isNight()) {
-      stars.forEach(s => { if (reduced || (t + s.p) % 90 > 6) px(s.x, s.y, 1, 1, P.orb); });
-      px(150, 10, 10, 10, P.orb); px(154, 10, 6, 6, P.sky[0]);          // moon
-    } else {
-      px(148, 9, 12, 12, P.orb); px(146, 11, 16, 8, P.orb); px(150, 7, 8, 16, P.orb); // sun
+    stars.slice(0, P.stars).forEach(s => { if (reduced || (t + s.p) % 90 > 6) px(s.x, s.y, 1, 1, "#fff1d6"); });
+
+    if (P === PHASES.night) {                       // crescent moon
+      px(P.orbX, P.orbY, 10, 10, P.orb); px(P.orbX + 4, P.orbY, 6, 6, P.sky[0]);
+    } else {                                        // round, chunky sun
+      const big = P === PHASES.day ? 0 : 2;
+      px(P.orbX, P.orbY + 2, 12 + big, 8 + big, P.orb);
+      px(P.orbX + 2, P.orbY, 8 + big, 12 + big, P.orb);
     }
 
     // far hills move slowest (parallax)
@@ -79,13 +129,13 @@ export function createScene(canvas) {
       px(x, 72 - h, 2, h + 8, P.far);
     }
 
-    // buildings move a bit faster
+    // buildings move a bit faster; more windows glow at night
     const so = scroll * 0.4, step = 24, base = Math.floor(so / step), off = so % step;
     for (let j = -1; j <= W / step + 1; j++) {
       const i = base + j, h = 12 + Math.floor(hash(i) * 18), x = j * step - off;
       px(x, 78 - h, 18, h, P.bld);
       for (let wy = 78 - h + 3; wy < 74; wy += 5) for (let wx = 3; wx < 16; wx += 5)
-        if (hash(i * 13 + wx * 7 + wy) > (isNight() ? 0.45 : 0.7)) px(x + wx, wy, 2, 2, P.win);
+        if (hash(i * 13 + wx * 7 + wy) > P.lit) px(x + wx, wy, 2, 2, P.win);
     }
 
     // ground and track move at full speed
@@ -96,42 +146,70 @@ export function createScene(canvas) {
     px(0, GROUND + 12, W, H - GROUND - 12, P.field);
   }
 
+  function runner(top) {
+    const per = Math.max(3, 9 - Math.round(speed * 2.5));
+    const frame = jumpY > 0 ? SPRITES.run1 : (Math.floor(t / per) % 2 ? SPRITES.run1 : SPRITES.run2);
+    sprite(frame, CX, top, 2, COLORS, day.pr ? "#ffc95c" : undefined);
+    if (!reduced && t % 6 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
+  }
+
   function drawCharacter() {
     const top = GROUND - 20 - Math.round(jumpY);
 
-    if (mode === "run" || mode === "attract" || mode === "loading") {
-      const per = Math.max(3, 9 - Math.round(speed * 2.5));
-      const frame = jumpY > 0 ? SPRITES.run1 : (Math.floor(t / per) % 2 ? SPRITES.run1 : SPRITES.run2);
-      sprite(frame, CX, top, 2);
-      if (!reduced && t % 6 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
-      if (mode === "run" && day && day.level && t % 14 === 0) spawn(CX, top + 10, -speed * 0.8, -0.2, GH_COLORS[day.level - 1], "sq");
-      if (mode === "loading") for (let i = 0; i < 3; i++) if (Math.floor(t / 10) % 4 > i) px(84 + i * 6, 40, 3, 3, P.orb);
+    if (mode === "attract" || mode === "loading") {
+      // title screen: the ghost jogs along behind the runner
+      ghost(CX - 36, GROUND - 30 - (reduced ? 0 : Math.round(Math.abs(Math.sin(t / 8)) * 2)), 2);
+      runner(top);
+      if (mode === "loading") for (let i = 0; i < 3; i++) if (Math.floor(t / 10) % 4 > i) px(90 + i * 6, 74, 3, 3, "#fff1d6");
+
+    } else if (mode === "run") {
+      runner(top);
+      if (day.level && t % 14 === 0) spawn(CX, top + 10, -speed * 0.8, -0.2, GH_COLORS[day.level - 1], "sq");
+      if (day.pr) {
+        const bob = reduced ? 0 : Math.round(Math.sin(t / 8));
+        px(CX - 3, top - 11 + bob, 19, 9, "#3d2e3f");
+        px(CX - 2, top - 10 + bob, 17, 7, "#ffc95c");
+        text("PR!", CX + 1, top - 9 + bob, "#3d2e3f");
+        if (prTimer > 0) { prTimer--; if (prTimer % 4 === 0) spawn(CX + 8 + (Math.random() - 0.5) * 30, top + (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 0.8, -0.4 - Math.random() * 0.6, Math.random() < 0.5 ? "#ffc95c" : "#fff1d6", "star", 60); }
+      }
 
     } else if (mode === "walk") {
       const frame = jumpY > 0 ? SPRITES.idle : (Math.floor(t / 16) % 2 ? SPRITES.idle : SPRITES.run2);
       sprite(frame, CX, top, 2);
 
     } else if (mode === "code") {
-      px(70, 74, 38, 3, "#8a5a3c"); px(72, 77, 3, GROUND - 73, "#6d452d"); px(103, 77, 3, GROUND - 73, "#6d452d"); // desk
-      px(78, 72, 18, 2, "#9aa0b5"); px(80, 61, 14, 11, "#3a3f55"); px(81, 62, 12, 9, P.glow);                   // laptop
+      px(70, 74, 38, 3, "#9a6a4c"); px(72, 77, 3, GROUND - 73, "#7a5038"); px(103, 77, 3, GROUND - 73, "#7a5038"); // desk
+      px(98, 70, 4, 4, "#f7f2ff"); px(102, 71, 1, 2, "#f7f2ff");                                               // mug
+      if (!reduced && Math.floor(t / 20) % 2) px(99, 67, 1, 2, "#e6dccb");                                      // steam
+      px(78, 72, 18, 2, "#a7a3b8"); px(80, 61, 14, 11, "#3d3a52"); px(81, 62, 12, 9, P.glow);                   // laptop
       for (let r = 0; r < 4; r++) if ((Math.floor(t / 12) + r) % 3) px(82, 63 + r * 2, 3 + ((r * 5 + Math.floor(t / 12)) % 7), 1, "#0e4429");
-      sprite(SPRITES.idle, CX - 4, GROUND - 20, 2, "#5fa8ff");
-      const lvl = Math.max(1, (day && day.level) || 1);
+      sprite(SPRITES.idle, CX - 4, GROUND - 20, 2, COLORS, "#7fb3e6");
+      const lvl = Math.max(1, day.level || 1);
       if (!reduced && t % Math.max(10, 34 - lvl * 6) === 0) spawn(86, 61, (Math.random() - 0.5) * 0.5, -0.5, GH_COLORS[lvl - 1], "sq");
 
     } else if (mode === "rest") {
-      px(44, 80, 44, 3, "#8a5a3c"); px(46, 83, 3, GROUND - 79, "#6d452d"); px(83, 83, 3, GROUND - 79, "#6d452d"); // bench
+      px(44, 80, 44, 3, "#9a6a4c"); px(46, 83, 3, GROUND - 79, "#7a5038"); px(83, 83, 3, GROUND - 79, "#7a5038"); // bench
       const breathe = reduced ? 0 : Math.floor(t / 40) % 2;
       px(46, 74 + breathe, 6, 2, COLORS.H); px(46, 76 + breathe, 6, 4 - breathe, COLORS.S);
       px(52, 75, 14, 5, COLORS.T); px(66, 76, 8, 4, COLORS.P); px(74, 77, 6, 3, COLORS.S); px(80, 76, 4, 4, COLORS.K);
-      if (!reduced && t % 70 === 0) spawn(54, 70, 0.2, -0.3, P.orb, "z");
+      if (!reduced && t % 70 === 0) spawn(54, 70, 0.2, -0.3, "#fff1d6", "z");
+      // every so often the ghost drifts across the sky
+      if (!reduced) { ghostX -= 0.35; if (ghostX < -20) ghostX = W + 60 + Math.floor(hash(t) * 120); ghost(ghostX, 30 + Math.round(Math.sin(ghostX / 14) * 4)); }
 
     } else if (mode === "today") {
       const frame = Math.floor(t / 22) % 2 && !reduced ? SPRITES.wave : SPRITES.idle;
       sprite(frame, CX, top, 2);
-      px(78, 50, 22, 11, "#fff1d0"); px(80, 61, 3, 2, "#fff1d0");      // speech bubble
-      for (let i = 0; i < 3; i++) if (reduced || Math.floor(t / 15) % 4 > i) px(82 + i * 6, 55, 3, 2, "#2a2140");
+      px(78, 50, 22, 11, "#fff1d6"); px(80, 61, 3, 2, "#fff1d6");
+      for (let i = 0; i < 3; i++) if (reduced || Math.floor(t / 15) % 4 > i) px(82 + i * 6, 55, 3, 2, "#3d2e3f");
     }
+  }
+
+  // Streak flame with the count, top left, on days that are part of the current streak.
+  function drawStreak() {
+    if (!day.streakDay || !day.streak) return;
+    px(3, 3, 9 + String(day.streak).length * 4 + 4, 12, "rgba(61,46,63,.55)");
+    sprite(reduced || Math.floor(t / 12) % 2 ? SPRITES.flame1 : SPRITES.flame2, 4, 5, 1, FLAME);
+    text(day.streak, 13, 7, "#fff1d6");
   }
 
   function drawParticles() {
@@ -139,6 +217,7 @@ export function createScene(canvas) {
       p.x += p.vx; p.y += p.vy; p.life--;
       if (p.kind === "dust") px(p.x, p.y, 1, 1, p.color);
       else if (p.kind === "sq") px(p.x, p.y, 3, 3, p.color);
+      else if (p.kind === "star") { px(p.x, p.y - 1, 1, 3, p.color); px(p.x - 1, p.y, 3, 1, p.color); }
       else if (p.kind === "z") { px(p.x, p.y, 4, 1, p.color); px(p.x + 2, p.y + 1, 1, 1, p.color); px(p.x + 1, p.y + 2, 1, 1, p.color); px(p.x, p.y + 3, 4, 1, p.color); }
     });
     parts = parts.filter(p => p.life > 0 && p.y > -5);
@@ -154,32 +233,39 @@ export function createScene(canvas) {
 
   function loop() {
     t++;
-    speed += (target - speed) * 0.06;   // ease toward the target speed
+    speed += (target - speed) * 0.06;
     scroll += speed;
     if (jumpY > 0 || vy > 0) { jumpY += vy; vy -= 0.26; if (jumpY <= 0) { jumpY = 0; vy = 0; } }
     drawWorld();
     drawCharacter();
     drawParticles();
+    drawStreak();
     drawWipe();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 
   // ----- public controls -----
+  // x: { mode, runs, level, phase, pr, streakDay, streak }
   function setMode(x) {
-    day = x;
-    mode = x.mode;
+    day = x || {};
+    mode = day.mode || "attract";
+    phaseFromTheme = !day.phase;
+    P = PHASES[day.phase] || PHASES[themePhase()];
     wipe = mode === "loading" ? 0 : 1;
     parts = [];
-    const miles = (x.runs || []).reduce((s, r) => s + r.mi, 0);
+    ghostX = W + 10;
+    prTimer = day.pr ? 90 : 0;
+    const miles = (day.runs || []).reduce((s, r) => s + (r.mi || 0), 0);
     target = mode === "run" ? 1.1 + Math.min(miles, 6) * 0.2
            : mode === "walk" ? 0.45
            : mode === "attract" ? 1.4
            : mode === "loading" ? 2.6 : 0;
     if (reduced) target = target ? 0.3 : 0;
+    if (day.pr) sfx.pr();
   }
 
-  // Click or space: jump, burst commits, or snore, depending on the day.
+  // Click or space: jump, burst commits, or wake the sleeper.
   function action() {
     if (mode === "run" || mode === "walk" || mode === "today" || mode === "attract" || mode === "loading") {
       if (jumpY === 0) { vy = 3.3; sfx.jump(); }
@@ -187,7 +273,7 @@ export function createScene(canvas) {
       for (let i = 0; i < 10; i++) spawn(86 + Math.random() * 4, 64, (Math.random() - 0.5) * 1.2, -0.6 - Math.random() * 0.8, GH_COLORS[Math.floor(Math.random() * 4)], "sq");
       sfx.commit();
     } else if (mode === "rest") {
-      for (let i = 0; i < 3; i++) spawn(52 + i * 3, 70 - i * 4, 0.25, -0.35, P.orb, "z");
+      for (let i = 0; i < 3; i++) spawn(52 + i * 3, 70 - i * 4, 0.25, -0.35, "#fff1d6", "z");
       sfx.snore();
     }
   }

@@ -10,8 +10,10 @@ import {
 import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
 import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
+import { fillIcons, iconSpan } from "./icons.js";
 
 const $ = id => document.getElementById(id);
+fillIcons();
 const canvas = $("scene");
 const scene = createScene(canvas);
 
@@ -20,7 +22,7 @@ let S = null;
 let sel = DAYS.findIndex(d => key(d) === TODAY_K);
 let buttons = [];
 
-const WORLD_PARTS = ["calbox", "panels", "stats", "who", "share", "switch"];
+const WORLD_PARTS = ["calbox", "panels", "tabs", "stats", "who", "share", "switch", "caption"];
 
 // ---------- loading a player ----------
 
@@ -118,7 +120,40 @@ function info(i) {
   else if (c.count > 0 || realActivity) mode = "code";
   else if (today) mode = "today";
 
-  return { i, d, k, count: c.count, level: c.level || (ev.length ? 1 : 0), ev, runs, manual, fromStrava, future, today, mode, active: runs.length > 0 || c.count > 0 };
+  // When did it happen? Strava start time first, otherwise the latest GitHub activity.
+  let hour = null;
+  const timed = fromStrava.filter(r => Number.isFinite(r.hour));
+  if (timed.length) hour = timed[timed.length - 1].hour;
+  else {
+    const real = ev.filter(e => e.type !== "WatchEvent");
+    if (real.length) hour = Math.max(...real.map(e => new Date(e.created_at).getHours()));
+  }
+
+  return {
+    i, d, k, count: c.count, level: c.level || (ev.length ? 1 : 0), ev, runs, manual, fromStrava,
+    future, today, mode, active: runs.length > 0 || c.count > 0,
+    hour, phase: phaseFor(hour),
+    pr: !!(S.best && runs.includes(S.best)),
+    streakDay: !!(S.streakKeys && S.streakKeys.has(k)), streak: S.streak || 0
+  };
+}
+
+// Sky for the time of day: 5–10 sunrise, 11–16 daytime, 17–19 sunset, otherwise night.
+function phaseFor(h) {
+  if (h == null || !Number.isFinite(h)) return null;
+  if (h >= 5 && h <= 10) return "dawn";
+  if (h >= 11 && h <= 16) return "day";
+  if (h >= 17 && h <= 19) return "dusk";
+  return "night";
+}
+
+// How big was this day, from 0 to 4? Used for the calendar glow.
+function energy(x) {
+  const mi = totalMiles(x.runs);
+  const runLevel = mi >= 5 ? 4 : mi >= 3 ? 3 : mi >= 1.5 ? 2 : x.runs.length ? 1 : 0;
+  let e = Math.max(x.level, runLevel);
+  if (x.level && x.runs.length) e = Math.min(4, e + 1);
+  return e;
 }
 
 function summary(x) {
@@ -134,8 +169,8 @@ function summary(x) {
 // ---------- showing the world ----------
 
 function showWorld() {
+  document.body.classList.remove("is-title");
   $("start").hidden = true;
-  $("tagline").hidden = true;
   WORLD_PARTS.forEach(id => ($(id).hidden = false));
 
   $("whoName").textContent = S.profile.name ? `${S.profile.name} (@${S.user})` : "@" + S.user;
@@ -143,10 +178,10 @@ function showWorld() {
   drawAvatar(S.profile.avatar_url);
   document.title = `${S.profile.name || S.user}’s pixel daily log`;
 
-  buildCalendar();
-  refreshStats();
-  refreshBars();
   refreshPace();
+  refreshStats();
+  buildCalendar();
+  refreshBars();
   renderStravaBox();
   renderTopRepos();
 
@@ -161,12 +196,10 @@ function showWorld() {
 
 function showStart() {
   S = null;
+  document.body.classList.add("is-title");
   $("start").hidden = false;
-  $("tagline").hidden = false;
   WORLD_PARTS.forEach(id => ($(id).hidden = true));
   document.title = "Pixel daily log";
-  $("capTitle").textContent = "Press start";
-  $("capText").textContent = "Type a GitHub username to build a pixel world from real activity.";
   try {
     const u = new URL(location.href);
     u.searchParams.delete("user");
@@ -210,28 +243,37 @@ function buildCalendar() {
 function refreshTiles() {
   buttons.forEach((b, i) => {
     const x = info(i);
+    const e = x.future ? 0 : energy(x);
     b.textContent = "";
     b.disabled = x.future;
+    b.className = "day" + (x.today ? " today" : "") + (e ? " e" + e : "") +
+      (x.level && x.runs.length ? " both" : x.runs.length ? " run" : x.level ? " code" : "") +
+      (i % 7 >= 5 ? " tip-r" : i % 7 <= 1 ? " tip-l" : "");
     b.setAttribute("aria-pressed", i === sel);
-    b.setAttribute("aria-label", fmt(x.d) + (x.future ? ", not yet" : `, ${x.count} contributions, ${x.runs.length} runs`));
+    const tip = tileTip(x);
+    b.setAttribute("aria-label", tip);
+    if (x.future) b.removeAttribute("data-tip"); else b.dataset.tip = tip;
 
     const num = document.createElement("span");
     num.className = "num";
     num.textContent = x.d.getDate() + (x.future ? " ?" : "");
-    const dots = document.createElement("span");
-    dots.className = "dots";
-    if (x.level) {
-      const s = document.createElement("span");
-      s.style.background = GH_COLORS[x.level - 1];
-      dots.appendChild(s);
-    }
-    x.runs.forEach(() => {
-      const s = document.createElement("span");
-      s.style.background = "var(--run)";
-      dots.appendChild(s);
-    });
-    b.append(num, dots);
+    const icons = document.createElement("span");
+    icons.className = "icons";
+    if (x.level || x.ev.some(ev => ev.type !== "WatchEvent")) icons.appendChild(iconSpan("laptop"));
+    if (x.runs.length) icons.appendChild(iconSpan("shoe"));
+    b.append(num, icons);
   });
+}
+
+// Short preview for the hover bubble and screen readers.
+function tileTip(x) {
+  const date = fmt(x.d);
+  if (x.future) return date + ", not yet";
+  const bits = [];
+  if (x.runs.length) bits.push(`${x.runs.length} ${x.runs.length === 1 ? "activity" : "activities"}, ${totalMiles(x.runs).toFixed(1)} mi`);
+  if (x.count) bits.push(`${x.count} contribution${x.count === 1 ? "" : "s"}`);
+  if (x.pr) bits.push("best pace!");
+  return `${date}: ${bits.length ? bits.join(", ") : x.today ? "nothing yet" : "rest day"}`;
 }
 
 function select(i, byUser) {
@@ -255,7 +297,9 @@ function refreshStats() {
   const infos = DAYS.map((_, i) => info(i));
   let i = infos.findIndex(x => x.today), streak = 0;
   if (!infos[i].active) i--;
-  while (i >= 0 && infos[i].active) { streak++; i--; }
+  S.streakKeys = new Set();
+  while (i >= 0 && infos[i].active) { streak++; S.streakKeys.add(infos[i].k); i--; }
+  S.streak = streak;
 
   $("stStreak").textContent = streak;
   $("stContrib").textContent = infos.reduce((s, x) => s + x.count, 0);
@@ -365,25 +409,43 @@ function renderRuns(x) {
     x.manual.splice(j, 1);
     if (!x.manual.length) delete S.runs[x.k];
     saveRuns(S.user, S.runs);
-    refreshTiles(); refreshStats(); refreshPace(); select(sel, false);
+    refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   })));
 }
 
-// One line in the runs list. Strava activities can't be deleted here, hand-logged ones can.
+// One line in the runs list: icon | name and source | distance and pace | delete.
+// Strava activities can't be deleted here, hand-logged ones can.
 function runRow(r, onDelete) {
   const li = document.createElement("li");
-  li.className = "row";
-  const name = document.createElement("span");
+  li.className = "runrow";
+  li.appendChild(iconSpan("shoe"));
+
+  const main = document.createElement("div");
+  const name = document.createElement("div");
+  name.className = "rname";
   name.textContent = r.name || "Run";
-  if (r.source === "strava") {
+  const sub = document.createElement("div");
+  sub.className = "rsub";
+  sub.textContent = r.source === "strava" ? `Strava, ${r.sport || "Run"}` : "Added by hand";
+  main.append(name, sub);
+
+  const nums = document.createElement("div");
+  nums.className = "rnums";
+  const dist = document.createElement("div");
+  dist.className = "rdist";
+  dist.textContent = `${r.mi.toFixed(2)} mi`;
+  const p = document.createElement("div");
+  p.className = "rpace";
+  p.textContent = isRun(r) && pace(r) ? pace(r) : "";
+  if (r === S.best) {
     const tag = document.createElement("span");
-    tag.className = "src";
-    tag.textContent = r.type === "run" ? "Strava" : r.sport;
-    name.appendChild(tag);
+    tag.className = "prtag";
+    tag.textContent = "Best";
+    p.appendChild(tag);
   }
-  const right = document.createElement("span");
-  const p = isRun(r) ? pace(r) : "";
-  right.textContent = `${r.mi.toFixed(2)} mi${p ? ", " + p : ""}`;
+  nums.append(dist, p);
+  li.append(main, nums);
+
   if (onDelete) {
     const del = document.createElement("button");
     del.className = "x";
@@ -391,23 +453,28 @@ function runRow(r, onDelete) {
     del.textContent = "×";
     del.setAttribute("aria-label", "Remove " + (r.name || "run"));
     del.addEventListener("click", onDelete);
-    right.appendChild(del);
+    li.appendChild(del);
+  } else {
+    li.appendChild(document.createElement("span"));
   }
-  li.append(name, right);
   return li;
 }
 
 // Best and average pace across the four weeks: the "progress" part.
 function refreshPace() {
-  const all = DAYS.flatMap((d, i) => info(i).runs.map(r => ({ ...r, d })));
+  const all = DAYS.flatMap((d, i) => (d > TODAY ? [] : info(i).runs.map(r => ({ ...r, d, ref: r }))));
   const timed = all.filter(r => isRun(r) && paceValue(r) && r.mi >= 0.5);
   if (!timed.length) {
+    S.best = null;
     $("paceBest").textContent = "—";
+    $("paceBestDay").textContent = "add a timed run";
     $("paceAvg").textContent = "—";
     return;
   }
   const best = timed.reduce((a, b) => (paceValue(b) < paceValue(a) ? b : a));
-  $("paceBest").textContent = `${formatPace(paceValue(best))} (${best.d.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
+  S.best = best.ref;
+  $("paceBest").textContent = formatPace(paceValue(best));
+  $("paceBestDay").textContent = best.d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   $("paceAvg").textContent = formatPace(averagePace(timed));
 }
 
@@ -428,14 +495,14 @@ function renderStravaBox() {
     const who = conn.athlete && conn.athlete.firstname ? conn.athlete.firstname : "you";
     status.append(`Connected to Strava as ${who}. `);
     const out = document.createElement("button");
-    out.className = "x";
+    out.className = "linkbtn";
     out.type = "button";
     out.textContent = "Disconnect";
     out.addEventListener("click", async () => {
       await strava.disconnect();
       S.strava = null;
       S.stravaError = "";
-      refreshTiles(); refreshStats(); refreshPace(); refreshBars(); renderStravaBox(); select(sel, false);
+      refreshPace(); refreshStats(); refreshTiles(); refreshBars(); renderStravaBox(); select(sel, false);
     });
     status.appendChild(out);
     if (S.stravaError) {
@@ -488,11 +555,20 @@ $("runForm").addEventListener("submit", e => {
   (S.runs[k] = S.runs[k] || []).push({ mi, min: min > 0 ? min : null, name: $("rName").value.trim().slice(0, 40) });
   saveRuns(S.user, S.runs);
   $("runForm").reset();
-  refreshTiles(); refreshStats(); refreshPace(); select(sel, false);
+  refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   sfx.addRun();
 });
 
 $("switch").addEventListener("click", showStart);
+
+// Phone tabs: show one panel at a time (on wide screens all three show).
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-pressed", t === tab));
+    document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === tab.dataset.panel));
+    sfx.select();
+  });
+});
 
 $("stravaConnect").addEventListener("click", () => {
   if (S) strava.startConnect(S.user);

@@ -65,6 +65,10 @@ export async function handleRedirect() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code })
     });
+    if (r.status === 403) {
+      return { ghUser, ok: false, full: true,
+        error: "Strava connections are full while Pixel daily log is in testing. Your GitHub world still works, and you can add runs by hand." };
+    }
     if (!r.ok) throw new Error("token " + r.status);
     const t = await r.json();
     store.set(KEY, { ...t, ghUser });
@@ -138,6 +142,7 @@ export function toDays(activities) {
       type,
       mi: Math.round((a.distance || 0) / 1609.344 * 100) / 100,
       min: (a.moving_time || 0) / 60 || null,
+      hour: parseInt(String(a.start_date_local || "").slice(11, 13), 10),
       source: "strava"
     });
   });

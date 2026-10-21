@@ -4,22 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pixel daily log</title>
-<meta name="description" content="Type your GitHub username and watch your days turn into a pixel world.">
+<meta name="description" content="Type your GitHub username and watch your days turn into a cozy pixel world.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="is-title">
 <div class="wrap">
   <header class="hud">
-    <div>
-      <h1>Pixel daily log</h1>
+    <div class="brand">
+      <h1 class="logo">Pixel daily log</h1>
       <div class="who" id="who" hidden>
         <canvas id="ava" width="16" height="16" aria-hidden="true"></canvas>
         <span>Playing as <b id="whoName">—</b></span>
       </div>
-      <div class="who" id="tagline">Your code and runs, one pixel day at a time.</div>
     </div>
     <div class="tools">
       <button class="btn px" id="share" hidden>Copy link</button>
@@ -28,63 +27,79 @@
     </div>
   </header>
 
-  <div class="stats" id="stats" hidden>
-    <div class="stat px"><span class="chip" style="background:var(--accent)"></span><span><b id="stStreak">0</b> day streak</span></div>
-    <div class="stat px"><span class="chip" style="background:var(--code)"></span><span><b id="stContrib">0</b> contributions in 4 weeks</span></div>
-    <div class="stat px" id="stYearBox"><span class="chip" style="background:var(--code)"></span><span><b id="stYear">0</b> this past year</span></div>
-    <div class="stat px"><span class="chip" style="background:var(--run)"></span><span><b id="stMiles">0</b> mi logged</span></div>
+  <div class="hudbar px" id="stats" hidden>
+    <div class="seg"><span class="ico" data-icon="flame"></span><b id="stStreak">0</b><span>day streak</span></div>
+    <div class="seg"><span class="ico" data-icon="laptop"></span><b id="stContrib">0</b><span>contributions, 4 wks</span></div>
+    <div class="seg" id="stYearBox"><span class="ico" data-icon="star"></span><b id="stYear">0</b><span>this past year</span></div>
+    <div class="seg"><span class="ico" data-icon="shoe"></span><b id="stMiles">0</b><span>miles, 4 wks</span></div>
   </div>
 
   <section class="top">
     <div class="stage px">
-      <canvas id="scene" tabindex="0" role="img" aria-label="Pixel scene"></canvas>
-      <div class="caption">
-        <h2 id="capTitle">Press start</h2>
-        <p id="capText">Type a GitHub username to build a pixel world from real activity.</p>
-        <div class="hint">Click the scene or press space to play. Use ← and → to change days.</div>
+      <div class="screen">
+        <canvas id="scene" tabindex="0" role="img" aria-label="Pixel scene"></canvas>
+        <div class="title-overlay" aria-hidden="true">
+          <div class="title-big">Pixel<br>daily log</div>
+          <div class="press">Press start</div>
+        </div>
       </div>
-    </div>
 
-    <div class="side px start" id="start">
-      <h2>Who’s playing?</h2>
-      <p>Type any GitHub username. The page reads public activity only, and nothing leaves your browser except requests to GitHub.</p>
-      <form class="field" id="startForm">
-        <input id="userInput" name="user" placeholder="GitHub username" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="GitHub username" required>
-        <button class="btn primary px" id="go" type="submit">Press start</button>
-      </form>
-      <div class="msg" id="msg" role="status"></div>
+      <div class="caption" id="caption" hidden>
+        <h2 id="capTitle">—</h2>
+        <p id="capText">—</p>
+        <div class="hint">Tap the scene to play. Use ← and → to change days.</div>
+      </div>
+
+      <div class="start" id="start">
+        <h2>Who’s playing?</h2>
+        <p>Type any GitHub username to build a pixel world from real activity. Connect Strava inside to add your runs.</p>
+        <form class="field" id="startForm">
+          <input id="userInput" name="user" placeholder="GitHub username" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="GitHub username" required>
+          <button class="btn primary px" id="go" type="submit">Press start</button>
+        </form>
+        <div class="msg" id="msg" role="status"></div>
+      </div>
     </div>
 
     <div class="side px" id="calbox" hidden>
       <h2>Pick a day</h2>
       <div class="cal" id="cal" role="group" aria-label="The last four weeks"></div>
       <div class="legend">
-        <span><span class="chip" style="background:var(--code)"></span>GitHub</span>
-        <span><span class="chip" style="background:var(--run)"></span>Runs</span>
+        <span><span class="ico sm" data-icon="laptop"></span>Code</span>
+        <span><span class="ico sm" data-icon="shoe"></span>Run</span>
+        <span><span class="glowdot"></span>Brighter = bigger day</span>
       </div>
     </div>
   </section>
 
+  <nav class="tabs" id="tabs" hidden aria-label="Day details">
+    <button class="tab" data-panel="pGit" aria-pressed="false"><span class="ico sm" data-icon="laptop"></span>GitHub</button>
+    <button class="tab" data-panel="pRun" aria-pressed="true"><span class="ico sm" data-icon="shoe"></span>Runs</button>
+    <button class="tab" data-panel="pMusic" aria-pressed="false"><span class="ico sm" data-icon="tape"></span>Music</button>
+  </nav>
+
   <section class="panels" id="panels" hidden>
-    <article class="panel px" aria-labelledby="hGit">
-      <h2 id="hGit"><span class="chip" style="background:var(--code)"></span>GitHub</h2>
+    <article class="panel px" id="pGit" aria-labelledby="hGit">
+      <h2 id="hGit"><span class="ico" data-icon="laptop"></span>GitHub</h2>
       <p class="sub" id="bio">What you did</p>
-      <div class="meter" id="meter" aria-hidden="true"></div>
-      <div id="meterText" style="margin-top:6px">—</div>
-      <h3>Activity this day</h3>
+      <div class="meterrow">
+        <div class="meter" id="meter" aria-hidden="true"></div>
+        <div id="meterText">—</div>
+      </div>
+      <h3>This day</h3>
       <ul class="list" id="ghList"></ul>
       <h3>Most active in (4 weeks)</h3>
       <div id="topRepos" class="muted">—</div>
     </article>
 
-    <article class="panel px" aria-labelledby="hRun">
-      <h2 id="hRun"><span class="chip" style="background:var(--run)"></span>Runs</h2>
+    <article class="panel px active" id="pRun" aria-labelledby="hRun">
+      <h2 id="hRun"><span class="ico" data-icon="shoe"></span>Runs</h2>
       <p class="sub">Pace and progress</p>
       <div class="strava" id="stravaBox" hidden>
         <button class="btn strava-btn px" id="stravaConnect" type="button" hidden>Connect with Strava</button>
         <div id="stravaStatus" class="small" role="status"></div>
       </div>
-      <ul class="list" id="runList"></ul>
+      <ul class="list runs" id="runList"></ul>
       <details class="addrun">
         <summary>Add a run by hand</summary>
         <form class="runform" id="runForm">
@@ -94,10 +109,9 @@
           <button class="btn primary px wide" type="submit">Add run to this day</button>
         </form>
       </details>
-      <h3>Pace (4 weeks)</h3>
       <div class="pacebox">
-        <div><span class="muted">Best</span> <b id="paceBest">—</b></div>
-        <div><span class="muted">Average</span> <b id="paceAvg">—</b></div>
+        <div class="pacecard"><span class="muted">Best pace</span><b id="paceBest">—</b><span class="small" id="paceBestDay"></span></div>
+        <div class="pacecard"><span class="muted">Average pace</span><b id="paceAvg">—</b><span class="small">last 4 weeks</span></div>
       </div>
       <h3>Weekly distance</h3>
       <div class="bars" id="bars"></div>
@@ -105,8 +119,8 @@
       <p class="small powered" id="poweredBy" hidden>Powered by Strava</p>
     </article>
 
-    <article class="panel px" aria-labelledby="hMusic">
-      <h2 id="hMusic"><span class="chip" style="background:var(--music)"></span>Music</h2>
+    <article class="panel px" id="pMusic" aria-labelledby="hMusic">
+      <h2 id="hMusic"><span class="ico" data-icon="tape"></span>Music</h2>
       <p class="sub">The day’s soundtrack</p>
       <div class="tape" aria-hidden="true">
         <div class="label">Coming soon</div>
@@ -116,9 +130,8 @@
     </article>
   </section>
 
-  <footer>Pixel daily log reads public GitHub data: public activity covers about the last 90 days, and anonymous visitors can make about 60 GitHub requests an hour. Contribution levels come from the community-run github-contributions-api.</footer>
+  <footer>Reads public GitHub data (about the last 90 days, roughly 60 requests an hour for visitors). Strava runs stay in the browser that connected them. Contribution levels come from the community-run github-contributions-api.</footer>
 </div>
-
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
