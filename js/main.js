@@ -193,6 +193,7 @@ function showWorld() {
 
   // Peeking at someone else's world is read-only: no adding runs, no Strava.
   const peek = !S.me;
+  scene.setLook(peek ? null : S.me.character);   // your own character, never someone else's
   $("share").hidden = !S.user;
   $("addRun").hidden = peek;
   $("runsNote").hidden = peek;
@@ -234,6 +235,7 @@ function showStart(typed = "") {
     u.searchParams.delete("user");
     history.replaceState(null, "", u);
   } catch (e) {}
+  scene.setLook(null);
   scene.setMode({ mode: "attract" });
   $("go").disabled = false;
   $("userInput").value = typed;
