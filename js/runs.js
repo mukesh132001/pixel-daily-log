@@ -1,11 +1,11 @@
-// Runs: logged by hand (saved per player in this browser) or pulled from Strava.
+// Runs: logged by hand (saved per profile in this browser) or pulled from Strava.
 // Shape: { "2026-10-19": [{ mi: 2.1, min: 20, name: "Pace training", type: "run" }] }
 
 import { store, runsKey } from "./storage.js";
 import { pad } from "./dates.js";
 
-export const loadRuns = user => store.get(runsKey(user), {});
-export const saveRuns = (user, runs) => store.set(runsKey(user), runs);
+export const loadRuns = profileId => store.get(runsKey(profileId), {});
+export const saveRuns = (profileId, runs) => store.set(runsKey(profileId), runs);
 
 // Minutes per mile as a number, or null if there's no time.
 export const paceValue = run => (run.min && run.mi ? run.min / run.mi : null);

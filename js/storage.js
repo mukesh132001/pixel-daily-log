@@ -14,5 +14,7 @@ export const store = {
   }
 };
 
-export const runsKey = user => "pdl:runs:" + user.toLowerCase();
+// Runs are saved under a profile id (older ones under a GitHub username).
+export const runsKey = owner => "pdl:runs:" + owner.toLowerCase();
+// Only read now, to move pre-profile players over.
 export const LAST_USER = "pdl:lastUser";
