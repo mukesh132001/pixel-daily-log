@@ -8,7 +8,10 @@ const KEY = "pdl:profile";
 // GitHub usernames can't contain "_", so an id can never be mistaken for one.
 const newId = () => "p_" + Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, "0")).join("");
 
-// The character, school and pet get filled in by the character creator.
+// The character, school and pet get filled in by the character creator. Their shapes (see art.js):
+//   character: { starter, skin, shirt, hairStyle, hairColor }   (plain keys, not colors)
+//   school:    { name, initials, c1, c2 }                       (cleanSchool() makes it safe)
+//   pet:       { type, name }
 export function newProfile(fields = {}) {
   return {
     v: 1,

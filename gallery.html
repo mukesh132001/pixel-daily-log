@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Art gallery · Pixel daily log</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css"><link rel="icon" type="image/png" href="favicon.png">
+<style>
+  /* A test page for the character art. The real creator screens come in the next pull request. */
+  body{padding:16px}
+  .g{max-width:880px;margin:0 auto}
+  .g h1{font-family:"Pixelify Sans",sans-serif;margin:0 0 4px}
+  .g h2{font-family:"Pixelify Sans",sans-serif;font-size:1.1rem;margin:28px 0 8px}
+  .g p,.g label,.g small{font-size:1rem}
+  .g small{color:var(--ink-soft)}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+  .g canvas{image-rendering:pixelated;background:#ece3d3;border:2px solid var(--line);border-radius:6px}
+  .panel{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:14px}
+  .builder{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+  .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;flex:1;min-width:260px}
+  .fields label{display:flex;flex-direction:column;gap:3px}
+  .g select,.g input[type=text],.g button{font:inherit;color:var(--ink);background:var(--panel);border:2px solid var(--line);border-radius:6px;padding:6px 8px}
+  .g input[type=color]{width:100%;height:38px;padding:2px;border:2px solid var(--line);border-radius:6px;background:var(--panel)}
+  .g button{cursor:pointer;background:var(--accent);color:var(--on-accent);font-weight:700}
+  .g button.plain{background:var(--panel);color:var(--ink);font-weight:400}
+  .g button:focus-visible,.g select:focus-visible,.g input:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  #msg{min-height:1.5em;margin-top:8px}
+  .swatch{width:34px;height:34px;border:2px solid var(--line);border-radius:6px}
+</style>
+</head>
+<body>
+<main class="g">
+  <h1>Art gallery</h1>
+  <p>Every part of the character art in one place, so we can check it before the creator screens exist. <a href="index.html">Back to the game</a></p>
+
+  <h2>Build a look</h2>
+  <div class="panel">
+    <div class="builder">
+      <div class="cell"><canvas id="live" aria-label="Preview of the character you are building"></canvas><small>Pose</small>
+        <select id="pose" aria-label="Pose"></select></div>
+      <div class="cell"><canvas id="livePen" aria-label="Preview of your school pennant"></canvas><small>Pennant</small></div>
+      <div class="fields">
+        <label>Starter<select id="starter"></select></label>
+        <label>Skin<select id="skin"></select></label>
+        <label>Shirt<select id="shirt"></select></label>
+        <label>Hair style<select id="hairStyle"></select></label>
+        <label>Hair color<select id="hairColor"></select></label>
+        <label>School name<input type="text" id="schoolName" maxlength="40" value="Pixel State"></label>
+        <label>Initials (up to 3)<input type="text" id="initials" maxlength="3" value="PXL" autocomplete="off"></label>
+        <label>Pennant color<input type="color" id="c1" value="#7a5fa8"></label>
+        <label>Trim and tip color<input type="color" id="c2" value="#ffc95c"></label>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="tryIt" type="button">Try this look in my world</button>
+      <button id="clearIt" type="button" class="plain">Go back to the default look</button>
+    </div>
+    <p id="msg" role="status" aria-live="polite"></p>
+  </div>
+
+  <h2>The three starters</h2>
+  <div class="row" id="starters"></div>
+
+  <h2>Hair: 3 styles × 4 colors <small>(shown without outfits)</small></h2>
+  <div class="row" id="hair"></div>
+
+  <h2>Skin tones and shirt colors</h2>
+  <div class="row" id="skins"></div>
+  <div class="row" id="shirts" style="margin-top:12px"></div>
+
+  <h2>Pennants</h2>
+  <div class="row" id="pennants"></div>
+
+  <h2>The A–Z font</h2>
+  <canvas id="font" aria-label="The pixel alphabet and numbers"></canvas>
+</main>
+
+<script type="module">
+import {
+  SKINS, HAIR_COLORS, HAIR_STYLES, SHIRTS, STARTERS, POSE_NAMES, PENNANT_COLORS,
+  normalizeLook, drawCharacter, cleanSchool, drawPennant, PENNANT_SIZE
+} from "./js/art.js";
+import { drawText } from "./js/font.js";
+import { loadProfile, saveProfile } from "./js/profile.js";
+
+const $ = id => document.getElementById(id);
+
+// Make a canvas w x h "game pixels" big, shown `zoom` times larger. Returns a px() painter for it.
+function canvasFor(cv, w, h, zoom) {
+  cv.width = w; cv.height = h;
+  cv.style.width = w * zoom + "px"; cv.style.height = h * zoom + "px";
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+  return (x, y, pw, ph, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), pw, ph); };
+}
+function add(parent, label, w, h, zoom, paint) {
+  const cell = document.createElement("div"); cell.className = "cell";
+  const cv = document.createElement("canvas");
+  const caption = document.createElement("small"); caption.textContent = label;
+  cell.append(cv, caption); parent.append(cell);
+  cv.setAttribute("aria-label", label);
+  paint(canvasFor(cv, w, h, zoom));
+}
+const person = (px, look, pose, opts) => drawCharacter(px, look, pose, 4, 4, 2, opts);
+
+// ----- build a look -----
+const fill = (id, table) => { for (const [k, v] of Object.entries(table)) $(id).add(new Option(v.label, k)); };
+fill("starter", STARTERS); fill("skin", SKINS); fill("shirt", SHIRTS); fill("hairStyle", HAIR_STYLES); fill("hairColor", HAIR_COLORS);
+POSE_NAMES.forEach(p => $("pose").add(new Option(p, p)));
+
+const currentLook = () => normalizeLook({
+  starter: $("starter").value, skin: $("skin").value, shirt: $("shirt").value,
+  hairStyle: $("hairStyle").value, hairColor: $("hairColor").value
+});
+const currentSchool = () => cleanSchool({ name: $("schoolName").value, initials: $("initials").value, c1: $("c1").value, c2: $("c2").value });
+
+function renderLive() {
+  const look = currentLook();
+  person(canvasFor($("live"), 24, 28, 8), look, $("pose").value);
+  const px = canvasFor($("livePen"), 38, 24, 8);
+  drawPennant(px, currentSchool(), 4, 5);
+}
+function setForm(look) {
+  for (const k of ["starter", "skin", "shirt", "hairStyle", "hairColor"]) $(k).value = look[k];
+}
+// Picking a starter also switches to that starter's usual shirt color.
+$("starter").addEventListener("change", () => { $("shirt").value = STARTERS[$("starter").value].shirt; renderLive(); });
+document.querySelectorAll("select,input").forEach(el => el.addEventListener("input", renderLive));
+
+const msg = (text, link) => {
+  $("msg").textContent = text;
+  if (link) { $("msg").append(" "); const a = document.createElement("a"); a.href = "index.html"; a.textContent = "Open my world"; $("msg").append(a); }
+};
+$("tryIt").addEventListener("click", () => {
+  const me = loadProfile();
+  if (!me) return msg("There is no saved profile in this browser yet. Open the game, press Start once, then come back here.");
+  saveProfile({ ...me, character: currentLook(), school: currentSchool() });
+  msg("Saved to your profile in this browser.", true);
+});
+$("clearIt").addEventListener("click", () => {
+  const me = loadProfile();
+  if (!me) return msg("There is no saved profile in this browser, so nothing to reset.");
+  saveProfile({ ...me, character: null, school: null });
+  msg("Back to the default look.", true);
+});
+
+// start from whatever look is already saved
+const saved = loadProfile();
+const start = normalizeLook(saved && saved.character);
+setForm(start);
+if (saved && saved.school) {
+  const s = cleanSchool(saved.school);
+  if (s) { $("schoolName").value = s.name; $("initials").value = s.initials; $("c1").value = s.c1; $("c2").value = s.c2; }
+}
+renderLive();
+
+// ----- the showcase -----
+for (const [key, s] of Object.entries(STARTERS)) {
+  for (const pose of POSE_NAMES) add($("starters"), `${s.label}, ${pose}`, 24, 28, 5, px => person(px, { starter: key }, pose));
+}
+for (const style of Object.keys(HAIR_STYLES)) for (const color of Object.keys(HAIR_COLORS))
+  add($("hair"), `${HAIR_STYLES[style].label}, ${HAIR_COLORS[color].label}`, 24, 28, 4, px => person(px, { hairStyle: style, hairColor: color }, "idle", { bare: true }));
+for (const [key, s] of Object.entries(SKINS)) add($("skins"), s.label, 24, 28, 4, px => person(px, { starter: "coder", skin: key }, "idle"));
+for (const [key, s] of Object.entries(SHIRTS)) add($("shirts"), s.label, 24, 28, 4, px => person(px, { starter: "runner", shirt: key }, "idle"));
+
+const schools = [
+  { name: "Pixel State", initials: "PXL", c1: PENNANT_COLORS[0], c2: PENNANT_COLORS[5] },
+  { name: "North High", initials: "NH", c1: PENNANT_COLORS[1], c2: PENNANT_COLORS[7] },
+  { name: "Green Valley", initials: "G", c1: PENNANT_COLORS[2], c2: PENNANT_COLORS[5] },
+  { name: "Sunrise Academy", initials: "SAC", c1: PENNANT_COLORS[5], c2: PENNANT_COLORS[6] },
+  { name: "Night Owls", initials: "NOW", c1: PENNANT_COLORS[3], c2: PENNANT_COLORS[7] },
+  { name: "Cream College", initials: "CC", c1: PENNANT_COLORS[7], c2: PENNANT_COLORS[4] }
+];
+schools.forEach(s => add($("pennants"), s.name, 38, 24, 4, px => drawPennant(px, s, 4, 5)));
+
+{
+  const rows = ["ABCDEFGHIJKLM", "NOPQRSTUVWXYZ", "0123456789!?.,-:'"];
+  const px = canvasFor($("font"), 72, 28, 8);
+  rows.forEach((r, i) => drawText(px, r, 3, 3 + i * 8, "#3d2e3f"));
+}
+</script>
+</body>
+</html>

@@ -8,6 +8,8 @@
 
 import { GH_COLORS } from "./github.js";
 import { sfx } from "./sound.js";
+import { drawText } from "./font.js";
+import { drawCharacter as drawLook, normalizeLook, lookColors } from "./art.js";
 
 const W = 192, H = 108;
 const GROUND = 90;   // y of the runner's feet
@@ -22,30 +24,17 @@ const PHASES = {
 };
 
 // Sprites are drawn as text: each letter is a color, dots are empty.
+// (The character's body, hair and outfits are in art.js; the ghost and flame are here.)
 const COLORS = {
-  H: "#3b2a22", S: "#d39a6a", T: "#f08a5d", P: "#3d2e3f", K: "#fff1d6",
   W: "#f7f2ff", L: "#cfc6ea", E: "#ffc95c", M: "#3d2e3f", B: "#f08a5d", O: "#f08a5d", C: "#fff1d6"
 };
 const SPRITES = {
-  run1: ["..HHH...", "..HSS...", "..SSS...", "...S....", ".TTTTS..", "S.TTT...", "..PPP...", "..P.P...", ".P...P..", "K.....K."],
-  run2: ["..HHH...", "..HSS...", "..SSS...", "...S....", "..TTT...", "..STTS..", "..PPP...", "...PP...", "...PP...", "...KK..."],
-  idle: ["..HHH...", "..HSS...", "..SSS...", "...S....", ".TTTTT..", "S.TTT.S.", "..PPP...", "..P.P...", "..P.P...", ".KK.KK.."],
-  wave: ["..HHH..S", "..HSS..S", "..SSS.T.", "...S.T..", ".TTTTT..", "S.TTT...", "..PPP...", "..P.P...", "..P.P...", ".KK.KK.."],
   // the ghost from the app icon: sweatband, sly glowing eyes, floating sneakers
   ghost: ["...WWWW...", "..WWWWWW..", ".BBBBBBBB.", ".WWWWWWWW.", ".WWLWWLWW.", ".WWEWWEWW.", ".WWWWWWWW.", ".WWWMMWWW.", ".WWWWWWWW.", ".WW.WW.WW."],
   flame1: ["...f....", "..ff....", "..fff.f.", ".fffyff.", ".ffyyff.", ".fyyyyf.", "..fyyf..", "........"],
   flame2: ["....f...", "...ff...", ".f.fff..", ".ffyfff.", ".ffyyff.", ".fyyyyf.", "..fyyf..", "........"]
 };
 const FLAME = { f: "#f08a5d", y: "#ffc95c" };
-
-// A tiny 3x5 font for numbers and "PR!".
-const FONT = {
-  0: ["###", "#.#", "#.#", "#.#", "###"], 1: [".#.", "##.", ".#.", ".#.", "###"], 2: ["###", "..#", "###", "#..", "###"],
-  3: ["###", "..#", "###", "..#", "###"], 4: ["#.#", "#.#", "###", "..#", "..#"], 5: ["###", "#..", "###", "..#", "###"],
-  6: ["###", "#..", "###", "#.#", "###"], 7: ["###", "..#", "..#", "..#", "..#"], 8: ["###", "#.#", "###", "#.#", "###"],
-  9: ["###", "#.#", "###", "..#", "###"], P: ["###", "#.#", "###", "#..", "#.."], R: ["##.", "#.#", "##.", "#.#", "#.#"],
-  "!": [".#.", ".#.", ".#.", "...", ".#."]
-};
 
 // Same input always gives the same "random" number, so buildings don't flicker.
 const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -69,6 +58,7 @@ export function createScene(canvas) {
   let t = 0, scroll = 0, speed = 0, target = 1.4;
   let jumpY = 0, vy = 0, parts = [], wipe = 0;
   let ghostX = -30, prTimer = 0;
+  let look = normalizeLook(null), custom = false;   // custom: the player chose a character (otherwise coders wear blue)
 
   // Follow light/dark changes when the day has no time of its own.
   const refresh = () => { if (phaseFromTheme) P = PHASES[themePhase()]; };
@@ -77,23 +67,15 @@ export function createScene(canvas) {
 
   // ----- drawing helpers -----
   const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
-  function sprite(s, x, y, scale, palette = COLORS, shirt) {
+  function sprite(s, x, y, scale, palette = COLORS) {
     for (let r = 0; r < s.length; r++) for (let c = 0; c < s[r].length; c++) {
       const ch = s[r][c];
-      if (ch === ".") continue;
-      px(x + c * scale, y + r * scale, scale, scale, ch === "T" && shirt ? shirt : palette[ch]);
+      if (ch !== ".") px(x + c * scale, y + r * scale, scale, scale, palette[ch]);
     }
   }
-  function text(str, x, y, color, shadow) {
-    [...String(str)].forEach((ch, i) => {
-      const g = FONT[ch];
-      if (!g) return;
-      for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (g[r][c] === "#") {
-        if (shadow) px(x + i * 4 + c + 1, y + r + 1, 1, 1, shadow);
-        px(x + i * 4 + c, y + r, 1, 1, color);
-      }
-    });
-  }
+  const text = (str, x, y, color, shadow) => drawText(px, str, x, y, color, shadow);
+  // The player's character in one of its poses (run1, run2, idle, wave).
+  const body = (pose, x, y, shirt) => drawLook(px, look, pose, x, y, 2, { shirt });
   const spawn = (x, y, vx, vy2, color, kind, life = 110) => parts.push({ x, y, vx, vy: vy2, color, kind, life });
 
   // The ghost: floats, bobs, and its sneakers shuffle.
@@ -148,8 +130,7 @@ export function createScene(canvas) {
 
   function runner(top) {
     const per = Math.max(3, 9 - Math.round(speed * 2.5));
-    const frame = jumpY > 0 ? SPRITES.run1 : (Math.floor(t / per) % 2 ? SPRITES.run1 : SPRITES.run2);
-    sprite(frame, CX, top, 2, COLORS, day.pr ? "#ffc95c" : undefined);
+    body(jumpY > 0 || Math.floor(t / per) % 2 ? "run1" : "run2", CX, top, day.pr ? "#ffc95c" : undefined);
     if (!reduced && t % 6 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
   }
 
@@ -174,8 +155,7 @@ export function createScene(canvas) {
       }
 
     } else if (mode === "walk") {
-      const frame = jumpY > 0 ? SPRITES.idle : (Math.floor(t / 16) % 2 ? SPRITES.idle : SPRITES.run2);
-      sprite(frame, CX, top, 2);
+      body(jumpY > 0 || Math.floor(t / 16) % 2 ? "idle" : "run2", CX, top);
 
     } else if (mode === "code") {
       px(70, 74, 38, 3, "#9a6a4c"); px(72, 77, 3, GROUND - 73, "#7a5038"); px(103, 77, 3, GROUND - 73, "#7a5038"); // desk
@@ -183,22 +163,22 @@ export function createScene(canvas) {
       if (!reduced && Math.floor(t / 20) % 2) px(99, 67, 1, 2, "#e6dccb");                                      // steam
       px(78, 72, 18, 2, "#a7a3b8"); px(80, 61, 14, 11, "#3d3a52"); px(81, 62, 12, 9, P.glow);                   // laptop
       for (let r = 0; r < 4; r++) if ((Math.floor(t / 12) + r) % 3) px(82, 63 + r * 2, 3 + ((r * 5 + Math.floor(t / 12)) % 7), 1, "#0e4429");
-      sprite(SPRITES.idle, CX - 4, GROUND - 20, 2, COLORS, "#7fb3e6");
+      body("idle", CX - 4, GROUND - 20, custom ? undefined : "#7fb3e6");
       const lvl = Math.max(1, day.level || 1);
       if (!reduced && t % Math.max(10, 34 - lvl * 6) === 0) spawn(86, 61, (Math.random() - 0.5) * 0.5, -0.5, GH_COLORS[lvl - 1], "sq");
 
     } else if (mode === "rest") {
       px(44, 80, 44, 3, "#9a6a4c"); px(46, 83, 3, GROUND - 79, "#7a5038"); px(83, 83, 3, GROUND - 79, "#7a5038"); // bench
       const breathe = reduced ? 0 : Math.floor(t / 40) % 2;
-      px(46, 74 + breathe, 6, 2, COLORS.H); px(46, 76 + breathe, 6, 4 - breathe, COLORS.S);
-      px(52, 75, 14, 5, COLORS.T); px(66, 76, 8, 4, COLORS.P); px(74, 77, 6, 3, COLORS.S); px(80, 76, 4, 4, COLORS.K);
+      const c = lookColors(look);
+      px(46, 74 + breathe, 6, 2, c.H); px(46, 76 + breathe, 6, 4 - breathe, c.S);
+      px(52, 75, 14, 5, c.T); px(66, 76, 8, 4, c.P); px(74, 77, 6, 3, c.S); px(80, 76, 4, 4, c.K);
       if (!reduced && t % 70 === 0) spawn(54, 70, 0.2, -0.3, "#fff1d6", "z");
       // every so often the ghost drifts across the sky
       if (!reduced) { ghostX -= 0.35; if (ghostX < -20) ghostX = W + 60 + Math.floor(hash(t) * 120); ghost(ghostX, 30 + Math.round(Math.sin(ghostX / 14) * 4)); }
 
     } else if (mode === "today") {
-      const frame = Math.floor(t / 22) % 2 && !reduced ? SPRITES.wave : SPRITES.idle;
-      sprite(frame, CX, top, 2);
+      body(Math.floor(t / 22) % 2 && !reduced ? "wave" : "idle", CX, top);
       px(78, 50, 22, 11, "#fff1d6"); px(80, 61, 3, 2, "#fff1d6");
       for (let i = 0; i < 3; i++) if (reduced || Math.floor(t / 15) % 4 > i) px(82 + i * 6, 55, 3, 2, "#3d2e3f");
     }
@@ -278,5 +258,11 @@ export function createScene(canvas) {
     }
   }
 
-  return { setMode, action };
+  // Dress the player: look is the saved character (or null for the default). Takes effect on the next frame.
+  function setLook(character) {
+    look = normalizeLook(character);
+    custom = !!character;
+  }
+
+  return { setMode, setLook, action };
 }
