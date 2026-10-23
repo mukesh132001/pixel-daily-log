@@ -10,12 +10,14 @@ import {
 import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
 import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
+import { createRoom } from "./room.js";
 import { fillIcons, iconSpan } from "./icons.js";
 
 const $ = id => document.getElementById(id);
 fillIcons();
 const canvas = $("scene");
 const scene = createScene(canvas);
+const room = createRoom($("room"));
 
 // The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, runs, strava, stravaError }
 // me is your profile on your own world, or null when peeking at someone else's (read-only).
@@ -24,7 +26,7 @@ let S = null;
 let sel = DAYS.findIndex(d => key(d) === TODAY_K);
 let buttons = [];
 
-const WORLD_PARTS = ["calbox", "panels", "tabs", "stats", "who", "share", "switch", "caption"];
+const WORLD_PARTS = ["calbox", "roomBox", "panels", "tabs", "stats", "who", "share", "switch", "caption"];
 
 // ---------- loading a world ----------
 
@@ -194,6 +196,7 @@ function showWorld() {
   // Peeking at someone else's world is read-only: no adding runs, no Strava.
   const peek = !S.me;
   scene.setLook(peek ? null : S.me.character);   // your own character, never someone else's
+  room.setPlayer(peek ? null : S.me.character, peek ? null : S.me.school);
   $("share").hidden = !S.user;
   $("addRun").hidden = peek;
   $("runsNote").hidden = peek;

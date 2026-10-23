@@ -38,6 +38,10 @@ js/config.js        PUBLIC settings only: STRAVA_CLIENT_ID and WORKER_URL
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
+js/room.js          "Your room": the 323x256 isometric room (pack sprites + character + pennant), scaled by whole numbers
+js/art.js           layered character art (starters, skin, hair, shirts) and the school pennant
+js/font.js          the A-Z pixel font
+sprites/room/       ONLY the pack sprites we use (see CREDITS.md). The raw packs in assets/ are git-ignored, never commit them
 js/runs.js          hand-logged runs and pace math
 js/icons.js         8x8 pixel SVG icons (shoe, laptop, flame, star, tape)
 js/dates.js         date helpers and the 4-week window

@@ -1,6 +1,6 @@
 # PROGRESS.md: where Pixel daily log stands
 
-Last updated: Wednesday, Oct 21, 2026. Update this file whenever a pull request is merged or a decision is made.
+Last updated: Thursday, Oct 22, 2026. Update this file whenever a pull request is merged or a decision is made.
 
 ## ✅ Live right now
 
@@ -14,12 +14,13 @@ Last updated: Wednesday, Oct 21, 2026. Update this file whenever a pull request 
 
 ## 📍 Where we stopped
 
-- **PR 2a + 2d** is committed and pushed on the branch **`character-art`**, but **not merged yet**. It adds:
-  - a layered art system (`js/art.js`): 3 starters (Runner, Coder, Student), 5 skin tones, 3 hair styles × 4 colors, 6 shirt colors
-  - the A–Z pixel font (`js/font.js`)
-  - your own school pennant (initials + two colors, no logos)
-  - `gallery.html`, a **dev-only** test page (not linked from the game)
-- Claude Code was opening the pull request with `gh pr create`. If `gh` isn't installed, open it on the GitHub website from the `character-art` banner.
+- **PR 4 (`character-art`) is merged:** layered characters (`js/art.js`), the A–Z pixel font, your own school pennant, and the dev-only `gallery.html`.
+- **Room prototype** is on the branch **`cozy-room`**, pushed, waiting for its pull request to be merged. It adds:
+  - a **"Your room"** card under the day scene (shows after Press Start): the ToffeeCraft isometric room with a bed, desk + chair + laptop, rug, plant, bookcase, floor lamp and window
+  - your character standing on the rug (5× scale) and your pennant hanging still on the left wall, leaning with the wall
+  - crisp pixels, scaled by whole numbers only (3× desktop, 2× tablet, 1× phone)
+  - `.gitignore` keeps the raw packs in `assets/` off GitHub; only the sprites we use live in `sprites/room/`
+- **Look check:** the character's chunky 8×10 grid looks blockier than the detailed furniture. That's expected until the bigger ~16×24 character art arrives.
 
 ## 🧭 Decisions we made
 
@@ -37,11 +38,10 @@ Last updated: Wednesday, Oct 21, 2026. Update this file whenever a pull request 
 
 ## ⏭️ Next up (in order)
 
-1. **Merge PR 2a + 2d** (`character-art`): Merge → Confirm merge → purple "Merged" → Delete branch. Then `git checkout main` and `git pull`.
-2. **Tell Claude Code** the character-select vision (big front-facing character) and that the gallery stays dev-only.
-3. **Pick an art pack** on itch.io (search "cozy isometric pixel room", "isometric pixel interior"). It needs front-facing characters and an isometric room. Check the license.
-4. **Isometric room prototype:** one room, one lighting, your character standing in it. Decide if the look is right.
-5. **The four lighting moods** matched to the time of day.
+1. **Merge the `cozy-room` PR**: Merge → Confirm merge → purple "Merged" → Delete branch. Then `git checkout main` and `git pull`.
+2. **Decide if the room look is right** (furniture spots, colors, character size).
+3. **Bigger character art** (~16×24, front-facing) so the character matches the furniture's detail.
+4. **The four lighting moods** in the room, matched to the time of day.
 6. **PR 3: character creator** using the new art.
 7. **PR 4:** power-ups in the creator (connect GitHub and Strava) and an "Edit character" button.
 8. **PR 5:** export and import your profile.

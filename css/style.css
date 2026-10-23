@@ -167,6 +167,13 @@ button,input{font:inherit;color:inherit}
 .legend > span{display:inline-flex;align-items:center;gap:6px}
 .glowdot{width:12px;height:12px;background:var(--code);box-shadow:0 0 8px 1px var(--code)}
 
+/* ---------- your room ---------- */
+.room-card{margin-top:30px;padding:16px 18px 18px}
+.room-card h2{font-size:1.4rem;margin-bottom:12px}
+.room-frame{display:flex;justify-content:center;background:var(--tile)}
+/* room.js sets the width to a whole-number multiple of 323px so pixels stay even */
+#room{display:block;max-width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+
 /* ---------- panels ---------- */
 .tabs{display:none}
 .panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;margin-top:30px}
