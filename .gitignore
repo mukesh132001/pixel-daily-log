@@ -1,0 +1,7 @@
+# Raw art packs stay on your computer only (licensed, not for redistribution).
+# The sprites the site actually uses are copied into sprites/.
+assets/
+
+# macOS leftovers from unzipping
+__MACOSX/
+.DS_Store
