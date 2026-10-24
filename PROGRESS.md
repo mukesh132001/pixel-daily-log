@@ -22,10 +22,14 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
   - the room has its own screen at **`#room`**: as big as fits (whole-number scaling), "← Back", "Pick character" lives here now
   - the browser back button works, `#room` links can be bookmarked, Escape goes back, focus moves to the heading and back to the button
   - peeks work too: `?user=<name>#room` shows their room read-only ("Their room", no Pick character)
-- **`room-camera`** is pushed, waiting for its pull request:
+- **Also merged:** `room-camera` (PR 9):
   - the room is always at least 2× (3× when the room area is 969px or wider), in whole device pixels so it stays crisp at 125%/150% zoom
   - a **camera**: if the room doesn't fit (phones), the view centers on your character and stops at the room's edges
   - the room screen fills the whole visible screen (slim header, no page scrolling) on a dusk backdrop: warm brown in light mode, plum night in dark mode
+- **`card-lists`** is pushed, waiting for its pull request:
+  - long lists in the cards (GitHub "This day", "Most active in", the runs list) show 4 items, then a pixel "Show all N ▾" / "Show less ▴" button (`aria-expanded`)
+  - picking another day folds them back up; "Most active in" can now show every repo, not just the top 4
+  - the three cards line up at the top with equal heights on wide screens (phones keep the tabs)
 
 ## 🧭 Decisions we made
 

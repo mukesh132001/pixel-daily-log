@@ -450,6 +450,36 @@ function refreshStats() {
   $("stMiles").textContent = totalMiles(infos.flatMap(x => x.runs)).toFixed(1);
 }
 
+// ---------- long lists fold up ----------
+
+// Long lists show their first few items, then a "Show all N" button, so the cards stay even.
+// Call after filling a list. where: what the list is about (a day's key); refilling the same list
+// for the same day keeps it open, a different day folds it back up.
+const FOLD_AT = 4;
+
+function foldList(list, where) {
+  let btn = $(list.id + "More");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = list.id + "More";
+    btn.className = "btn px more";
+    btn.setAttribute("aria-controls", list.id);
+    btn.addEventListener("click", () => { setFolded(list, btn, btn.getAttribute("aria-expanded") === "true"); sfx.select(); });
+    list.after(btn);
+  }
+  const stayOpen = btn.dataset.where === where && btn.getAttribute("aria-expanded") === "true";
+  btn.dataset.where = where;
+  btn.hidden = list.children.length <= FOLD_AT;
+  setFolded(list, btn, !stayOpen);
+}
+
+function setFolded(list, btn, folded) {
+  [...list.children].forEach((item, i) => (item.hidden = folded && i >= FOLD_AT));
+  btn.setAttribute("aria-expanded", !folded);
+  btn.textContent = folded ? `Show all ${list.children.length} ▾` : "Show less ▴";
+}
+
 // ---------- GitHub panel ----------
 
 function renderGitHub(x) {
@@ -475,6 +505,7 @@ function renderGitHub(x) {
       : x.count ? "These contributions aren’t in GitHub’s public feed (private repos, or not synced yet)."
       : "No public activity.";
     ul.appendChild(li);
+    foldList(ul, x.k);
     return;
   }
 
@@ -504,6 +535,7 @@ function renderGitHub(x) {
     }
     ul.appendChild(li);
   });
+  foldList(ul, x.k);
 }
 
 function renderTopRepos() {
@@ -520,10 +552,11 @@ function renderTopRepos() {
 
   const el = $("topRepos");
   el.textContent = "";
-  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   if (!top.length) {
     el.textContent = !S.user ? "Connect GitHub to see your repos here."
       : S.eventsOk ? "No public activity in the last four weeks." : "Activity details unavailable right now.";
+    foldList(el, "repos:" + S.user);
     return;
   }
   top.forEach(([r, n]) => {
@@ -535,6 +568,7 @@ function renderTopRepos() {
     a.textContent = `${r.split("/")[1]} (${n})`;
     el.appendChild(a);
   });
+  foldList(el, "repos:" + S.user);
 }
 
 // ---------- Runs panel ----------
@@ -556,6 +590,7 @@ function renderRuns(x) {
     saveRuns(S.me.id, S.runs);
     refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   })));
+  foldList(ul, x.k);
 }
 
 // One line in the runs list: icon | name and source | distance and pace | delete.
