@@ -1,8 +1,11 @@
 // Everything that talks to GitHub lives here.
-// Public data only: no login, about 60 requests an hour per network.
+// Public data only. GitHub calls go through our Worker first: it adds a token (5,000 requests an hour,
+// shared by everyone) and keeps answers at Cloudflare for 10 minutes. If the Worker can't help, we ask
+// GitHub directly, which allows about 60 requests an hour per network.
 
 import { key } from "./dates.js";
 import { store } from "./storage.js";
+import { WORKER_URL } from "./config.js";
 
 export const GH_COLORS = ["#0e4429", "#006d32", "#26a641", "#39d353"];
 
@@ -28,6 +31,21 @@ let savedFrom = null;   // when the oldest saved answer we fell back on was save
 export const savedSince = () => savedFrom;
 export const clearSaved = () => { savedFrom = null; };
 
+const GITHUB = "https://api.github.com/";
+const PROXY = WORKER_URL ? WORKER_URL.replace(/\/+$/, "") + "/github/" : "";
+
+// Ask the Worker for GitHub API addresses; if it's unreachable or answers with anything but
+// "here it is" or "no such thing", ask GitHub directly.
+async function request(url) {
+  if (PROXY && url.startsWith(GITHUB)) {
+    try {
+      const r = await fetch(PROXY + url.slice(GITHUB.length));
+      if (r.ok || r.status === 404) return r;
+    } catch (e) {}
+  }
+  return fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+}
+
 // shape: trims an answer down to what we use before it's saved and returned.
 // Errors carry status, limited (the hourly limit is used up) and, when GitHub says, resetAt (a Date).
 async function getJSON(url, shape = d => d) {
@@ -35,7 +53,7 @@ async function getJSON(url, shape = d => d) {
   const saved = store.get(k, null);
   if (saved && Date.now() - saved.when < FRESH_MS) return saved.data;
 
-  const r = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+  const r = await request(url);
   if (!r.ok) {
     const e = new Error("HTTP " + r.status);
     e.status = r.status;
