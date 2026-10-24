@@ -4,13 +4,14 @@
 // so every pixel stays crisp. Everything is placed in room pixels on a 323x256 canvas, and CSS scales the
 // whole canvas up by a whole number (2x, 3x...) so pixels never get blurry or uneven.
 //
-// It's a still picture for now: drawn once when the images load, and again when the player changes.
+// The room itself is still. Only your character moves: the 4-frame front idle from characters.js,
+// drawn 1:1 like the furniture (or held on one frame if you prefer reduced motion).
 
-import { drawCharacter, drawPennant, cleanSchool } from "./art.js";
+import { drawPennant, cleanSchool } from "./art.js";
+import { FRAME_MS, drawFrame, loadImage as loadSprite } from "./characters.js";
 
 const W = 323, H = 256;
-const SCALE = 5;            // character cells -> room pixels (the 8x10 body becomes 40x50, taller than the chair)
-const PENNANT_SCALE = 2;    // the felt pennant at 2x, so its chunky pixels match the character's
+const PENNANT_SCALE = 2;    // the felt pennant at 2x, so it reads at room size
 const WALL_SLOPE = 3 / 8;   // the walls rise 3 pixels for every 8 across
 
 // Furniture, painted in this order (later pieces cover earlier ones, so list back to front).
@@ -27,7 +28,7 @@ const PLACES = [
   { img: "plant",    x: 22,  y: 146 }
 ];
 const PENNANT = { x: 58, y: 80 };     // on the left wall, above the desk
-const PLAYER = { x: 146, y: 154 };    // top-left of the body, standing on the rug
+const PLAYER = { x: 148, feet: 203 }; // left edge of the frame, and where the feet touch the rug
 
 // Shown until you pick your own school.
 const DEFAULT_SCHOOL = { name: "Pixel State", initials: "PS", c1: "#7a5fa8", c2: "#ffc95c" };
@@ -47,7 +48,8 @@ export function createRoom(canvas) {
 
   const names = ["room", ...new Set(PLACES.map(p => p.img))];
   const ready = Promise.all(names.map(loadImage)).then(imgs => Object.fromEntries(names.map((n, i) => [n, imgs[i]])));
-  let look = null, school = DEFAULT_SCHOOL;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let imgs = null, player = null, wanted = null, school = DEFAULT_SCHOOL, frame = 0;
 
   const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
 
@@ -70,13 +72,17 @@ export function createRoom(canvas) {
     ctx.restore();
   }
 
-  function draw(imgs) {
+  function draw() {
+    if (!imgs) return;
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(imgs.room, 0, 0);
     drawPennant(onLeftWall(PENNANT.x, PENNANT.y), school, 0, 0);   // hangs perfectly still
     PLACES.forEach(p => sprite(imgs[p.img], p.x, p.y, p.flip));
-    drawCharacter(px, look, "idle", PLAYER.x, PLAYER.y, SCALE);
+    if (player) drawFrame(ctx, player, frame, 0, PLAYER.x, PLAYER.feet);
   }
+
+  ready.then(loaded => { imgs = loaded; draw(); }).catch(e => console.warn(e.message));
+  if (!reduced) setInterval(() => { frame = (frame + 1) % 4; if (player) draw(); }, FRAME_MS.idle);
 
   // Scale the canvas by a whole number of *screen* pixels that still fits the card.
   // (Counting device pixels keeps it crisp on screens set to 125% or 150%.)
@@ -88,13 +94,15 @@ export function createRoom(canvas) {
   }
   new ResizeObserver(fit).observe(canvas.parentElement);
 
-  // Dress the room: your saved character and school (null for the defaults).
+  // Dress the room: a roster character (see characters.js) and your school (null for the default).
   function setPlayer(character, sch) {
-    look = character || null;
     school = cleanSchool(sch) || DEFAULT_SCHOOL;
-    ready.then(draw).catch(e => console.warn(e.message));
+    draw();
+    const want = wanted = character.front;
+    loadSprite(want)
+      .then(img => { if (want === wanted) { player = img; draw(); } })   // ignore a slower, older pick
+      .catch(e => console.warn(e.message));
   }
 
-  setPlayer(null, null);
   return { setPlayer };
 }

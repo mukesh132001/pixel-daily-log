@@ -1,6 +1,6 @@
 # PROGRESS.md: where Pixel daily log stands
 
-Last updated: Thursday, Oct 22, 2026. Update this file whenever a pull request is merged or a decision is made.
+Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request is merged or a decision is made.
 
 ## ✅ Live right now
 
@@ -22,6 +22,14 @@ Last updated: Thursday, Oct 22, 2026. Update this file whenever a pull request i
   - `.gitignore` keeps the raw packs in `assets/` off GitHub; only the sprites we use live in `sprites/room/`
 - **Look check:** the character's chunky 8×10 grid looks blockier than the detailed furniture. That's expected until the bigger ~16×24 character art arrives.
 
+- **Character select** is on the branch **`character-select`**, pushed, waiting for its pull request:
+  - Muki's own character pack in `sprites/characters/`; roster in `js/characters.js` (Leo, Night Owl, Ghost Kid, Rain Runner)
+  - "Pick character" on the room card opens one big front-facing character, ◀ ▶ to switch, dark silhouettes + hints when locked
+  - Unlocks: Leo from the start; Night Owl = a push between midnight and 4am; Ghost Kid = 7 logged days in a row (commit or run); Rain Runner = 3 runs in one Mon–Sun week
+  - The profile saves `characterId`, `unlocked` (never taken away) and `log` (every logged day + best streak)
+  - The room shows the front idle; the day scene uses the side sheets (run, walk, jump, nap on the bench)
+  - `localhost:8000/?dev` unlocks everything for one visit
+
 ## 🧭 Decisions we made
 
 - **Profiles:** saved in the browser for now (Option A). Real accounts (Option B) come with the friends features.
@@ -34,6 +42,9 @@ Last updated: Thursday, Oct 22, 2026. Update this file whenever a pull request i
 - **Character select:** one **big front-facing character** looking at the player, with a small idle animation, arrows to switch starters, and live skin/hair/shirt options. Nothing else on that screen.
 - **Focus:** make **one beautiful room** first, then add features.
 - **Working with Claude Code:** Sonnet 5.5 for building, Opus for big planning, `/clear` between pull requests, manual mode while learning.
+- **Characters are picked and unlocked, not built.** The layered "build your character" art (`js/art.js`) is off the main page; only `gallery.html` uses it.
+- **Rain Runner:** Strava's activity list has no weather, so it unlocks with 3 runs in one week for now. Real rain would need a weather API by date and place.
+- **Night Owl:** GitHub's public feed gives push times, not commit times, so a late-night push counts.
 - **Name:** "Pixmod" is a working name. Check GitHub, domains and trademarks before renaming.
 
 ## ⏭️ Next up (in order)

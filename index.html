@@ -73,11 +73,30 @@
   </section>
 
   <section class="room-card px" id="roomBox" hidden aria-labelledby="hRoom">
-    <h2 id="hRoom">Your room</h2>
+    <div class="room-head">
+      <h2 id="hRoom">Your room</h2>
+      <button class="btn px" id="pick" type="button">Pick character<span class="newtag" id="pickNew" hidden>New!</span></button>
+    </div>
     <div class="room-frame">
       <canvas id="room" role="img" aria-label="Your pixel room: a bed, a desk with a laptop, a bookcase, a window and your school pennant, with your character standing on the rug"></canvas>
     </div>
   </section>
+
+  <dialog class="picker" id="picker" aria-labelledby="pickName">
+    <div class="picker-box px">
+      <button class="x pick-close" id="pickClose" type="button" aria-label="Close">×</button>
+      <h2 id="pickName">—</h2>
+      <div class="small" id="pickCount"></div>
+      <div class="pick-stage">
+        <button class="btn px arrow" id="pickPrev" type="button" aria-label="Previous character">&#9664;&#xFE0E;</button>
+        <canvas id="pickArt" role="img"></canvas>
+        <button class="btn px arrow" id="pickNext" type="button" aria-label="Next character">&#9654;&#xFE0E;</button>
+      </div>
+      <p class="pick-hint" id="pickHint" role="status"></p>
+      <button class="btn primary px" id="pickGo" type="button">Play</button>
+      <p class="small" id="pickDev" hidden>Dev mode: everything is unlocked for this visit only.</p>
+    </div>
+  </dialog>
 
   <nav class="tabs" id="tabs" hidden aria-label="Day details">
     <button class="tab" data-panel="pGit" aria-pressed="false"><span class="ico sm" data-icon="laptop"></span>GitHub</button>

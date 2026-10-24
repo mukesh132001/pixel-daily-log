@@ -1,7 +1,7 @@
 // Entry point: loads a player, draws the calendar and panels, and wires up the buttons.
 
 import { key, fmt, TODAY, TODAY_K, DAYS } from "./dates.js";
-import { loadProfile, saveProfile, newProfile, isMine, migrateOldPlayer } from "./profile.js";
+import { loadProfile, saveProfile, newProfile, isMine, migrateOldPlayer, recordDays } from "./profile.js";
 import { setSound, sfx } from "./sound.js";
 import {
   GH_COLORS, isValidUsername, fetchProfile, fetchContributions, fetchEvents,
@@ -11,6 +11,8 @@ import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, to
 import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
 import { createRoom } from "./room.js";
+import { ROSTER, DEFAULT_ID, byId, currentCharacter, isUnlocked, meetsRule } from "./characters.js";
+import { createPicker } from "./picker.js";
 import { fillIcons, iconSpan } from "./icons.js";
 
 const $ = id => document.getElementById(id);
@@ -18,6 +20,24 @@ fillIcons();
 const canvas = $("scene");
 const scene = createScene(canvas);
 const room = createRoom($("room"));
+
+// Dev only: open http://localhost:8000/?dev to unlock every character for this visit (nothing is saved).
+const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).has("dev");
+const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
+// Your picked character (if you've unlocked it), or the default for peeks and new players.
+const characterFor = me => (me ? currentCharacter(me.characterId, unlockedFor(me)) : byId(DEFAULT_ID));
+scene.setCharacter(characterFor(loadProfile()));
+
+const picker = createPicker({
+  dialog: $("picker"), art: $("pickArt"), name: $("pickName"), count: $("pickCount"), hint: $("pickHint"),
+  dev: $("pickDev"), prev: $("pickPrev"), next: $("pickNext"), go: $("pickGo"), close: $("pickClose")
+}, id => {
+  if (!S || !S.me) return;
+  S.me = { ...S.me, characterId: id };
+  saveProfile(S.me);
+  dressPlayer();
+  sfx.select();
+});
 
 // The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, runs, strava, stravaError }
 // me is your profile on your own world, or null when peeking at someone else's (read-only).
@@ -193,10 +213,11 @@ function showWorld() {
   $("start").hidden = true;
   WORLD_PARTS.forEach(id => ($(id).hidden = false));
 
-  // Peeking at someone else's world is read-only: no adding runs, no Strava.
+  // Peeking at someone else's world is read-only: no adding runs, no Strava, no picking characters.
   const peek = !S.me;
-  scene.setLook(peek ? null : S.me.character);   // your own character, never someone else's
-  room.setPlayer(peek ? null : S.me.character, peek ? null : S.me.school);
+  if (!peek) checkUnlocks();
+  dressPlayer();
+  $("pick").hidden = peek;
   $("share").hidden = !S.user;
   $("addRun").hidden = peek;
   $("runsNote").hidden = peek;
@@ -226,6 +247,44 @@ function showWorld() {
   select(sel, false);
 }
 
+// Your own character in the scene and the room, never someone else's.
+function dressPlayer() {
+  const c = characterFor(S.me);
+  scene.setCharacter(c);
+  room.setPlayer(c, S.me ? S.me.school : null);
+}
+
+// ---------- unlocking characters ----------
+
+// Adds the days you logged to your profile, then unlocks any character whose rule you now meet.
+// A day counts if it has a commit (GitHub contributions or a push) or a run. Unlocks are never taken away.
+function checkUnlocks() {
+  const infos = DAYS.map((_, i) => info(i)).filter(x => !x.future);
+  const logged = infos.filter(x => x.count > 0 || x.ev.some(e => e.type === "PushEvent") || x.runs.some(isRun));
+  let me = recordDays(S.me, logged.map(x => x.k));
+
+  // The public feed has push times, not each commit's time, so a push counts as the commit.
+  const pushes = [...S.events.values()].flat().filter(e => e.type === "PushEvent");
+  const weeks = [0, 1, 2, 3].map(w => infos.filter(x => Math.floor(x.i / 7) === w)
+    .reduce((n, x) => n + x.runs.filter(isRun).length, 0));
+  const facts = {
+    lateCommit: pushes.some(e => new Date(e.created_at).getHours() < 4),
+    bestStreak: me.log.best,
+    mostRunsInAWeek: Math.max(...weeks)
+  };
+
+  const unlocked = { ...(me.unlocked || {}) };
+  const fresh = ROSTER.filter(c => !isUnlocked(c, unlocked) && meetsRule(c.unlock, facts));
+  fresh.forEach(c => (unlocked[c.id] = TODAY_K));
+  S.me = me = { ...me, unlocked };
+  saveProfile(me);
+
+  if (fresh.length) {
+    $("pickNew").hidden = false;
+    sfx.pr();
+  }
+}
+
 // typed: what to leave in the username box (after a failed load).
 function showStart(typed = "") {
   S = null;
@@ -238,7 +297,7 @@ function showStart(typed = "") {
     u.searchParams.delete("user");
     history.replaceState(null, "", u);
   } catch (e) {}
-  scene.setLook(null);
+  scene.setCharacter(characterFor(loadProfile()));
   scene.setMode({ mode: "attract" });
   $("go").disabled = false;
   $("userInput").value = typed;
@@ -602,6 +661,7 @@ $("runForm").addEventListener("submit", e => {
   (S.runs[k] = S.runs[k] || []).push({ mi, min: min > 0 ? min : null, name: $("rName").value.trim().slice(0, 40) });
   saveRuns(S.me.id, S.runs);
   $("runForm").reset();
+  checkUnlocks();
   refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   sfx.addRun();
 });
@@ -619,6 +679,13 @@ document.querySelectorAll(".tab").forEach(tab => {
     document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === tab.dataset.panel));
     sfx.select();
   });
+});
+
+$("pick").addEventListener("click", () => {
+  if (!S || !S.me) return;
+  $("pickNew").hidden = true;
+  picker.open(characterFor(S.me).id, unlockedFor(S.me), DEV);
+  sfx.select();
 });
 
 $("stravaConnect").addEventListener("click", () => {
@@ -646,6 +713,7 @@ $("sound").addEventListener("click", () => {
 canvas.addEventListener("click", () => scene.action());
 
 document.addEventListener("keydown", e => {
+  if ($("picker").open) return;   // the character picker uses the arrow keys itself
   if (e.target.matches && e.target.matches("input, a, textarea")) return;
   if (e.key === "ArrowRight" && S) { e.preventDefault(); select(sel + 1, true); buttons[sel] && buttons[sel].focus({ preventScroll: true }); }
   else if (e.key === "ArrowLeft" && S) { e.preventDefault(); select(sel - 1, true); buttons[sel] && buttons[sel].focus({ preventScroll: true }); }

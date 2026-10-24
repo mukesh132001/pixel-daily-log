@@ -9,11 +9,13 @@
 import { GH_COLORS } from "./github.js";
 import { sfx } from "./sound.js";
 import { drawText } from "./font.js";
-import { drawCharacter as drawLook, normalizeLook, lookColors } from "./art.js";
+import { FRAME_W, FRAME_H, ROWS, drawFrame, loadImage } from "./characters.js";
 
 const W = 192, H = 108;
 const GROUND = 90;   // y of the runner's feet
 const CX = 56;       // x of the character
+const FX = CX - 6;   // left edge of its 32x40 frame (the body sits a few pixels in from the edge)
+const FEET = GROUND - 1;
 
 // Cozy pastel skies for each time of day.
 const PHASES = {
@@ -24,7 +26,7 @@ const PHASES = {
 };
 
 // Sprites are drawn as text: each letter is a color, dots are empty.
-// (The character's body, hair and outfits are in art.js; the ghost and flame are here.)
+// (The character is a PNG sheet from characters.js; the ghost and flame are here.)
 const COLORS = {
   W: "#f7f2ff", L: "#cfc6ea", E: "#ffc95c", M: "#3d2e3f", B: "#f08a5d", O: "#f08a5d", C: "#fff1d6"
 };
@@ -50,6 +52,7 @@ export function createScene(canvas) {
   const ctx = canvas.getContext("2d");
   canvas.width = W;
   canvas.height = H;
+  ctx.imageSmoothingEnabled = false;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const stars = Array.from({ length: 34 }, (_, i) => ({ x: Math.floor(hash(i) * W), y: Math.floor(hash(i + 99) * 58), p: Math.floor(hash(i + 7) * 90) }));
@@ -58,7 +61,7 @@ export function createScene(canvas) {
   let t = 0, scroll = 0, speed = 0, target = 1.4;
   let jumpY = 0, vy = 0, parts = [], wipe = 0;
   let ghostX = -30, prTimer = 0;
-  let look = normalizeLook(null), custom = false;   // custom: the player chose a character (otherwise coders wear blue)
+  let sheet = null, wanted = null;   // the character's side-view sheet (see setCharacter)
 
   // Follow light/dark changes when the day has no time of its own.
   const refresh = () => { if (phaseFromTheme) P = PHASES[themePhase()]; };
@@ -74,8 +77,19 @@ export function createScene(canvas) {
     }
   }
   const text = (str, x, y, color, shadow) => drawText(px, str, x, y, color, shadow);
-  // The player's character in one of its poses (run1, run2, idle, wave).
-  const body = (pose, x, y, shirt) => drawLook(px, look, pose, x, y, 2, { shirt });
+  // The player's character: one frame of a sheet row (idle, walk, run, jump), feet on feetY.
+  const body = (row, col, x, feetY) => { if (sheet) drawFrame(ctx, sheet, col, ROWS[row], x, feetY); };
+  // Jump frames: 1 rising, 2 at the top, 3 coming down.
+  const jumpFrame = () => (vy > 1 ? 1 : vy > -1 ? 2 : 3);
+  // Napping: the first idle frame turned on its back, centered on (cx, cy).
+  function lyingDown(cx, cy) {
+    if (!sheet) return;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-Math.PI / 2);
+    ctx.drawImage(sheet, 0, 0, FRAME_W, FRAME_H, -FRAME_W / 2, -FRAME_H / 2, FRAME_W, FRAME_H);
+    ctx.restore();
+  }
   const spawn = (x, y, vx, vy2, color, kind, life = 110) => parts.push({ x, y, vx, vy: vy2, color, kind, life });
 
   // The ghost: floats, bobs, and its sneakers shuffle.
@@ -128,23 +142,27 @@ export function createScene(canvas) {
     px(0, GROUND + 12, W, H - GROUND - 12, P.field);
   }
 
-  function runner(top) {
-    const per = Math.max(3, 9 - Math.round(speed * 2.5));
-    body(jumpY > 0 || Math.floor(t / per) % 2 ? "run1" : "run2", CX, top, day.pr ? "#ffc95c" : undefined);
+  // In the air: rise, peak, fall. On the ground: the run cycle, faster as speed goes up.
+  function runner(feet) {
+    const per = Math.max(4, 9 - Math.round(speed * 2.5));
+    if (jumpY > 0) body("jump", jumpFrame(), FX, feet);
+    else body("run", reduced ? 0 : Math.floor(t / per) % 4, FX, feet);
     if (!reduced && t % 6 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
   }
 
   function drawCharacter() {
-    const top = GROUND - 20 - Math.round(jumpY);
+    const feet = FEET - Math.round(jumpY);
+    const top = feet - 28;   // about where the head starts, for signs and sparks
+    const idle = reduced ? 0 : Math.floor(t / 16) % 4;
 
     if (mode === "attract" || mode === "loading") {
       // title screen: the ghost jogs along behind the runner
       ghost(CX - 36, GROUND - 30 - (reduced ? 0 : Math.round(Math.abs(Math.sin(t / 8)) * 2)), 2);
-      runner(top);
+      runner(feet);
       if (mode === "loading") for (let i = 0; i < 3; i++) if (Math.floor(t / 10) % 4 > i) px(90 + i * 6, 74, 3, 3, "#fff1d6");
 
     } else if (mode === "run") {
-      runner(top);
+      runner(feet);
       if (day.level && t % 14 === 0) spawn(CX, top + 10, -speed * 0.8, -0.2, GH_COLORS[day.level - 1], "sq");
       if (day.pr) {
         const bob = reduced ? 0 : Math.round(Math.sin(t / 8));
@@ -155,7 +173,8 @@ export function createScene(canvas) {
       }
 
     } else if (mode === "walk") {
-      body(jumpY > 0 || Math.floor(t / 16) % 2 ? "idle" : "run2", CX, top);
+      if (jumpY > 0) body("jump", jumpFrame(), FX, feet);
+      else body("walk", reduced ? 0 : Math.floor(t / 9) % 4, FX, feet);
 
     } else if (mode === "code") {
       px(70, 74, 38, 3, "#9a6a4c"); px(72, 77, 3, GROUND - 73, "#7a5038"); px(103, 77, 3, GROUND - 73, "#7a5038"); // desk
@@ -163,22 +182,21 @@ export function createScene(canvas) {
       if (!reduced && Math.floor(t / 20) % 2) px(99, 67, 1, 2, "#e6dccb");                                      // steam
       px(78, 72, 18, 2, "#a7a3b8"); px(80, 61, 14, 11, "#3d3a52"); px(81, 62, 12, 9, P.glow);                   // laptop
       for (let r = 0; r < 4; r++) if ((Math.floor(t / 12) + r) % 3) px(82, 63 + r * 2, 3 + ((r * 5 + Math.floor(t / 12)) % 7), 1, "#0e4429");
-      body("idle", CX - 4, GROUND - 20, custom ? undefined : "#7fb3e6");
+      body("idle", idle, FX - 4, FEET);
       const lvl = Math.max(1, day.level || 1);
       if (!reduced && t % Math.max(10, 34 - lvl * 6) === 0) spawn(86, 61, (Math.random() - 0.5) * 0.5, -0.5, GH_COLORS[lvl - 1], "sq");
 
     } else if (mode === "rest") {
       px(44, 80, 44, 3, "#9a6a4c"); px(46, 83, 3, GROUND - 79, "#7a5038"); px(83, 83, 3, GROUND - 79, "#7a5038"); // bench
       const breathe = reduced ? 0 : Math.floor(t / 40) % 2;
-      const c = lookColors(look);
-      px(46, 74 + breathe, 6, 2, c.H); px(46, 76 + breathe, 6, 4 - breathe, c.S);
-      px(52, 75, 14, 5, c.T); px(66, 76, 8, 4, c.P); px(74, 77, 6, 3, c.S); px(80, 76, 4, 4, c.K);
+      lyingDown(62, 70 - breathe);
       if (!reduced && t % 70 === 0) spawn(54, 70, 0.2, -0.3, "#fff1d6", "z");
       // every so often the ghost drifts across the sky
       if (!reduced) { ghostX -= 0.35; if (ghostX < -20) ghostX = W + 60 + Math.floor(hash(t) * 120); ghost(ghostX, 30 + Math.round(Math.sin(ghostX / 14) * 4)); }
 
     } else if (mode === "today") {
-      body(Math.floor(t / 22) % 2 && !reduced ? "wave" : "idle", CX, top);
+      if (jumpY > 0) body("jump", jumpFrame(), FX, feet);
+      else body("idle", idle, FX, feet);
       px(78, 50, 22, 11, "#fff1d6"); px(80, 61, 3, 2, "#fff1d6");
       for (let i = 0; i < 3; i++) if (reduced || Math.floor(t / 15) % 4 > i) px(82 + i * 6, 55, 3, 2, "#3d2e3f");
     }
@@ -258,11 +276,13 @@ export function createScene(canvas) {
     }
   }
 
-  // Dress the player: look is the saved character (or null for the default). Takes effect on the next frame.
-  function setLook(character) {
-    look = normalizeLook(character);
-    custom = !!character;
+  // Who's playing: a roster character from characters.js. Shows up as soon as its sheet loads.
+  function setCharacter(character) {
+    const want = wanted = character.side;
+    loadImage(want)
+      .then(img => { if (want === wanted) sheet = img; })   // ignore a slower, older pick
+      .catch(e => console.warn(e.message));
   }
 
-  return { setMode, setLook, action };
+  return { setMode, setCharacter, action };
 }
