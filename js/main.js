@@ -5,7 +5,7 @@ import { loadProfile, saveProfile, newProfile, isMine, migrateOldPlayer, recordD
 import { setSound, sfx } from "./sound.js";
 import {
   GH_COLORS, isValidUsername, fetchProfile, fetchContributions, fetchEvents,
-  levelsFromEvents, fetchCommitMessage, groupEvents
+  levelsFromEvents, fetchCommitMessage, groupEvents, savedSince, clearSaved
 } from "./github.js";
 import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
 import * as strava from "./strava.js";
@@ -39,7 +39,7 @@ const picker = createPicker({
   sfx.select();
 });
 
-// The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, runs, strava, stravaError }
+// The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, eventsError, runs, strava, stravaError }
 // me is your profile on your own world, or null when peeking at someone else's (read-only).
 // user and profile are the GitHub login and profile, or null without GitHub.
 let S = null;
@@ -59,6 +59,7 @@ async function loadWorld(name, me) {
     return;
   }
   $("go").disabled = true;
+  clearSaved();
   say(user ? `Loading ${user}’s world…` : "Loading your world…");
   scene.setMode({ mode: "loading" });
 
@@ -69,7 +70,7 @@ async function loadWorld(name, me) {
     } catch (e) {
       showStart(user);
       if (e.status === 404) say(`No GitHub user called “${user}”. Check the spelling and try again.`, true);
-      else if (e.limited) say("GitHub’s hourly limit for this network is used up. Try again in a little while.", true);
+      else if (e.limited) say(`GitHub’s hourly limit for this network is used up. Try again ${retryWhen(e)}.`, true);
       else say("Couldn’t reach GitHub. Check your connection and try again.", true);
       return;
     }
@@ -97,6 +98,7 @@ async function loadWorld(name, me) {
     profile,
     events,
     eventsOk: eventsR.status === "fulfilled",
+    eventsError: eventsR.status === "rejected" ? eventsR.reason : null,
     contrib: contribOk ? contribR.value.byDay : levelsFromEvents(events),
     yearTotal: contribOk ? contribR.value.yearTotal : null,
     runs: me ? loadRuns(me.id) : {},
@@ -133,6 +135,30 @@ function stravaErrorText(e) {
   if (e && e.needsReconnect) { strava.disconnect(); return "Strava disconnected. Connect again to bring your runs back."; }
   if (e && e.limited) return "Strava’s request limit was reached. Your runs will be back in about 15 minutes.";
   return "Couldn’t load your Strava runs right now.";
+}
+
+// "after 3:42 PM" when GitHub told us when its hourly limit resets, otherwise "in a little while".
+function retryWhen(e) {
+  return e && e.resetAt ? "after " + e.resetAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "in a little while";
+}
+
+// "20 min ago", "3 hours ago", "2 days ago".
+function ago(ms) {
+  const min = Math.max(1, Math.round((Date.now() - ms) / 60000));
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h} hour${h === 1 ? "" : "s"} ago`;
+  const d = Math.round(h / 24);
+  return `${d} day${d === 1 ? "" : "s"} ago`;
+}
+
+// The small note in the GitHub card: saved data standing in for GitHub, or when the limit resets.
+function renderGitHubNote() {
+  const note = $("ghNote"), since = savedSince(), e = S && S.eventsError;
+  note.textContent = since ? `Showing saved data from ${ago(since)}.`
+    : e && e.limited ? `GitHub’s hourly limit is used up. Activity details are back ${retryWhen(e)}.`
+    : "";
+  note.hidden = !note.textContent;
 }
 
 function say(text, bad) {
@@ -239,6 +265,7 @@ function showWorld() {
   refreshBars();
   renderStravaBox();
   renderTopRepos();
+  renderGitHubNote();
 
   // Start on the most recent day with something in it.
   sel = DAYS.findIndex(d => key(d) === TODAY_K);
@@ -525,8 +552,8 @@ function renderGitHub(x) {
         c.textContent = "Loading commit…";
         li.appendChild(c);
         fetchCommitMessage(g.repo, sha)
-          .then(m => { c.textContent = "“" + m + "”"; })
-          .catch(e => { c.textContent = e.limited ? "Commit details paused: GitHub’s hourly limit." : "Commit message unavailable."; });
+          .then(m => { c.textContent = "“" + m + "”"; renderGitHubNote(); })   // it may have come from saved data
+          .catch(e => { c.textContent = e.limited ? `Commit details paused by GitHub’s hourly limit. Back ${retryWhen(e)}.` : "Commit message unavailable."; });
       });
     } else {
       t.textContent = g.text;

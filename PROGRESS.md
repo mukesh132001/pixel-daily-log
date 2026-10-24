@@ -26,10 +26,14 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
   - the room is always at least 2× (3× when the room area is 969px or wider), in whole device pixels so it stays crisp at 125%/150% zoom
   - a **camera**: if the room doesn't fit (phones), the view centers on your character and stops at the room's edges
   - the room screen fills the whole visible screen (slim header, no page scrolling) on a dusk backdrop: warm brown in light mode, plum night in dark mode
-- **`card-lists`** is pushed, waiting for its pull request:
+- **Also merged:** `card-lists` (PR 10):
   - long lists in the cards (GitHub "This day", "Most active in", the runs list) show 4 items, then a pixel "Show all N ▾" / "Show less ▴" button (`aria-expanded`)
   - picking another day folds them back up; "Most active in" can now show every repo, not just the top 4
   - the three cards line up at the top with equal heights on wide screens (phones keep the tabs)
+- **`github-cache`** is pushed, waiting for its pull request:
+  - every GitHub answer is saved in the browser (`pdl:gh:<url>`) and reused for 15 minutes; trimmed to the fields we use, cleared after a week
+  - when the hourly limit is hit, older saved data is used and the GitHub card says "Showing saved data from 20 min ago"
+  - with nothing saved, messages give the reset time from `X-RateLimit-Reset` ("Try again after 3:42 PM")
 
 ## 🧭 Decisions we made
 
