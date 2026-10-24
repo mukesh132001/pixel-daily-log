@@ -39,7 +39,10 @@ js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
 js/room.js          "Your room": the 323x256 isometric room (pack sprites + character + pennant), scaled by whole numbers
-js/art.js           layered character art (starters, skin, hair, shirts) and the school pennant
+js/characters.js    the character roster: id, display name, sprite paths, unlock rule (id is saved, name can change)
+js/picker.js        character select: one big front-facing character, arrows, silhouettes for locked ones
+sprites/characters/ Muki's own character pack (OK to commit): side sheets and front idles, 32x40 frames, feet on row 35
+js/art.js           the school pennant, plus the OLD layered character (only gallery.html uses it now)
 js/font.js          the A-Z pixel font
 sprites/room/       ONLY the pack sprites we use (see CREDITS.md). The raw packs in assets/ are git-ignored, never commit them
 js/runs.js          hand-logged runs and pace math
@@ -55,6 +58,7 @@ Test locally (modules need a server, double-clicking index.html won't work):
 cd ~/Downloads/pixel-daily-log
 python3 -m http.server 8000   # open http://localhost:8000, Ctrl + C to stop
 ```
+Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved).
 
 ## Rules you must follow
 
