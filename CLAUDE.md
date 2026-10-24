@@ -38,7 +38,7 @@ js/config.js        PUBLIC settings only: STRAVA_CLIENT_ID and WORKER_URL
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
-js/room.js          the 323x256 isometric room (pack sprites + character + pennant), scaled by whole numbers. Its own screen at #room (routing in main.js)
+js/room.js          the 323x256 isometric room (pack sprites + character + pennant), drawn at whole device pixels (2x, 3x on big screens) with a camera that follows the character when it doesn't fit. Its own screen at #room (routing in main.js)
 js/characters.js    the character roster: id, display name, sprite paths, unlock rule (id is saved, name can change)
 js/picker.js        character select: one big front-facing character, arrows, silhouettes for locked ones
 sprites/characters/ Muki's own character pack (OK to commit): side sheets and front idles, 32x40 frames, feet on row 35

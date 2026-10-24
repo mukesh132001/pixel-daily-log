@@ -12,6 +12,7 @@
   --line:#3d2e3f; --shadow:rgba(61,46,63,.16);
   --accent:#ffc95c; --run:#f08a5d; --code:#4caf6e; --music:#d77fa1;
   --empty:#e6dccb; --bad:#c4473a; --on-accent:#3d2e3f;
+  --room-top:#5a3d3a; --room-bottom:#2e2028; --room-glow:rgba(255,201,92,.24);   /* warm dusk behind the room */
   color-scheme:light;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -24,6 +25,7 @@
     --line:#8e78a8; --shadow:rgba(0,0,0,.38);
     --accent:#ffc95c; --run:#ff9f73; --code:#6fd08c; --music:#f09cc0;
     --empty:#45394f; --bad:#ff8a7a; --on-accent:#3d2e3f;
+    --room-top:#3a2c56; --room-bottom:#17121f; --room-glow:rgba(255,201,92,.14);
     color-scheme:dark;
   }
 }
@@ -33,6 +35,7 @@
   --line:#8e78a8; --shadow:rgba(0,0,0,.38);
   --accent:#ffc95c; --run:#ff9f73; --code:#6fd08c; --music:#f09cc0;
   --empty:#45394f; --bad:#ff8a7a; --on-accent:#3d2e3f;
+  --room-top:#3a2c56; --room-bottom:#17121f; --room-glow:rgba(255,201,92,.14);
   color-scheme:dark;
 }
 
@@ -170,18 +173,22 @@ button,input{font:inherit;color:inherit}
 
 /* ---------- your room (its own screen, #room) ---------- */
 /* while it's open, everything else on the page steps aside (the picker dialog stays available) */
-.is-room .wrap{padding-bottom:22px}
+.is-room{overflow:hidden}
 .is-room .wrap > :not(#roomScreen):not(dialog){display:none}
-.room-screen{display:flex;flex-direction:column;height:calc(100dvh - 52px);padding:14px 16px 16px}
-.room-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:12px}
-.room-head h2{font-size:1.5rem;margin-right:auto}
+/* the whole visible screen: a slim header, then the room area takes the rest */
+.room-screen{position:fixed;inset:0;height:100dvh;display:flex;flex-direction:column;background:var(--bg)}
+.room-head{display:flex;align-items:center;gap:12px;
+  padding:max(10px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 12px max(14px,env(safe-area-inset-left,0px));
+  border-bottom:4px solid var(--line)}
+.room-head h2{font-size:1.5rem;margin-right:auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px}
 .room-head h2:focus{outline:none}
-.room-head h2:focus-visible{outline:3px dashed var(--accent);outline-offset:4px}
-.newtag{display:inline-block;background:var(--run);color:#fff;padding:0 5px;margin-left:8px;font-size:.95rem;animation:blink 1.1s steps(2) infinite}
-/* the frame takes whatever height is left; room.js fits the canvas inside it */
-.room-frame{flex:1 1 0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--tile)}
-/* room.js sets the width to a whole-number multiple of 323px so pixels stay even */
-#room{display:block;max-width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+.room-head h2:focus-visible{outline:3px dashed var(--accent);outline-offset:-1px}
+.room-head .btn{flex:none}
+/* a cozy dusk backdrop with a soft lamp glow, so the beige room stands out */
+.room-frame{position:relative;flex:1 1 0;min-height:0;overflow:hidden;
+  background:radial-gradient(ellipse 60% 55% at 50% 58%,var(--room-glow),transparent 70%),linear-gradient(var(--room-top),var(--room-bottom))}
+/* the canvas covers the room area; room.js matches its pixels to the screen and moves the camera */
+#room{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 
 /* ---------- character select ---------- */
 .picker{border:0;padding:0;background:none;color:var(--ink);max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);overflow:visible}
@@ -281,6 +288,9 @@ footer{margin-top:32px;color:var(--ink-soft);font-size:1.05rem;max-width:72ch}
   .day .icons .ico{width:10px;height:10px}
   .tools{gap:8px}
   .tools .btn{padding:6px 9px;font-size:1.1rem;min-height:40px}
+  .room-head{gap:8px}
+  .room-head .btn{padding:6px 9px;font-size:1.1rem;min-height:40px}
+  .room-head h2{font-size:1.25rem}
   .seg{padding:8px 10px}
   .seg b{font-size:1.3rem}
 }

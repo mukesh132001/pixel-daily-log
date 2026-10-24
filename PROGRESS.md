@@ -17,13 +17,15 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
 - **Merged:** `cozy-room` (PR 5, the isometric room) and `character-select` (PR 6: Muki's character pack, roster in `js/characters.js`, the picker, unlocks, `?dev` on localhost).
   - Unlocks: Leo from the start; Night Owl = a push between midnight and 4am; Ghost Kid = 7 logged days in a row (commit or run); Rain Runner = 3 runs in one Mon–Sun week
   - The profile saves `characterId`, `unlocked` (never taken away) and `log` (every logged day + best streak)
-- **`slower-run`** is pushed, waiting for its pull request: the run cycle and background scroll are a bit slower.
-- **`room-screen`** is pushed, waiting for its pull request:
+- **Also merged:** `slower-run` (PR 7, calmer run cycle and scroll) and `room-screen` (PR 8):
   - the room left the main page; a pixel **"My room"** button with a door icon sits in the header (next to Change player)
   - the room has its own screen at **`#room`**: as big as fits (whole-number scaling), "← Back", "Pick character" lives here now
   - the browser back button works, `#room` links can be bookmarked, Escape goes back, focus moves to the heading and back to the button
   - peeks work too: `?user=<name>#room` shows their room read-only ("Their room", no Pick character)
-- **Look check:** on phones the room only fits at 1× (it's 323 pixels wide), so it looks small there.
+- **`room-camera`** is pushed, waiting for its pull request:
+  - the room is always at least 2× (3× when the room area is 969px or wider), in whole device pixels so it stays crisp at 125%/150% zoom
+  - a **camera**: if the room doesn't fit (phones), the view centers on your character and stops at the room's edges
+  - the room screen fills the whole visible screen (slim header, no page scrolling) on a dusk backdrop: warm brown in light mode, plum night in dark mode
 
 ## 🧭 Decisions we made
 
