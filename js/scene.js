@@ -58,7 +58,7 @@ export function createScene(canvas) {
   const stars = Array.from({ length: 34 }, (_, i) => ({ x: Math.floor(hash(i) * W), y: Math.floor(hash(i + 99) * 58), p: Math.floor(hash(i + 7) * 90) }));
 
   let mode = "attract", day = {}, P = PHASES[themePhase()], phaseFromTheme = true;
-  let t = 0, scroll = 0, speed = 0, target = 1.4;
+  let t = 0, scroll = 0, speed = 0, target = 1.1;
   let jumpY = 0, vy = 0, parts = [], wipe = 0;
   let ghostX = -30, prTimer = 0;
   let sheet = null, wanted = null;   // the character's side-view sheet (see setCharacter)
@@ -144,7 +144,7 @@ export function createScene(canvas) {
 
   // In the air: rise, peak, fall. On the ground: the run cycle, faster as speed goes up.
   function runner(feet) {
-    const per = Math.max(4, 9 - Math.round(speed * 2.5));
+    const per = Math.max(5, 10 - Math.round(speed * 2.5));
     if (jumpY > 0) body("jump", jumpFrame(), FX, feet);
     else body("run", reduced ? 0 : Math.floor(t / per) % 4, FX, feet);
     if (!reduced && t % 6 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
@@ -255,10 +255,10 @@ export function createScene(canvas) {
     ghostX = W + 10;
     prTimer = day.pr ? 90 : 0;
     const miles = (day.runs || []).reduce((s, r) => s + (r.mi || 0), 0);
-    target = mode === "run" ? 1.1 + Math.min(miles, 6) * 0.2
-           : mode === "walk" ? 0.45
-           : mode === "attract" ? 1.4
-           : mode === "loading" ? 2.6 : 0;
+    target = mode === "run" ? 0.9 + Math.min(miles, 6) * 0.16
+           : mode === "walk" ? 0.36
+           : mode === "attract" ? 1.1
+           : mode === "loading" ? 2.1 : 0;
     if (reduced) target = target ? 0.3 : 0;
     if (day.pr) sfx.pr();
   }
