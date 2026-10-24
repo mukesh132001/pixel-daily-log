@@ -31,14 +31,14 @@ Design principles (keep these in every decision):
 No build step, no framework. Plain HTML, CSS and JavaScript ES modules. GitHub Pages serves the files as they are (`.nojekyll` is present on purpose).
 
 ```
-index.html          page structure (title screen, HUD, scene, calendar, panels, phone tabs)
+index.html          page structure (title screen, HUD, scene, calendar, panels, phone tabs, room screen, picker)
 css/style.css       cozy retro theme: CSS variables, light (warm paper) and dark (plum night)
 js/main.js          app entry: loads a player, calendar, panels, controls
 js/config.js        PUBLIC settings only: STRAVA_CLIENT_ID and WORKER_URL
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
-js/room.js          "Your room": the 323x256 isometric room (pack sprites + character + pennant), scaled by whole numbers
+js/room.js          the 323x256 isometric room (pack sprites + character + pennant), scaled by whole numbers. Its own screen at #room (routing in main.js)
 js/characters.js    the character roster: id, display name, sprite paths, unlock rule (id is saved, name can change)
 js/picker.js        character select: one big front-facing character, arrows, silhouettes for locked ones
 sprites/characters/ Muki's own character pack (OK to commit): side sheets and front idles, 32x40 frames, feet on row 35

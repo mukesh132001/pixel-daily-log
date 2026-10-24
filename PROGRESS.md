@@ -14,21 +14,16 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
 
 ## 📍 Where we stopped
 
-- **PR 4 (`character-art`) is merged:** layered characters (`js/art.js`), the A–Z pixel font, your own school pennant, and the dev-only `gallery.html`.
-- **Room prototype** is on the branch **`cozy-room`**, pushed, waiting for its pull request to be merged. It adds:
-  - a **"Your room"** card under the day scene (shows after Press Start): the ToffeeCraft isometric room with a bed, desk + chair + laptop, rug, plant, bookcase, floor lamp and window
-  - your character standing on the rug (5× scale) and your pennant hanging still on the left wall, leaning with the wall
-  - crisp pixels, scaled by whole numbers only (3× desktop, 2× tablet, 1× phone)
-  - `.gitignore` keeps the raw packs in `assets/` off GitHub; only the sprites we use live in `sprites/room/`
-- **Look check:** the character's chunky 8×10 grid looks blockier than the detailed furniture. That's expected until the bigger ~16×24 character art arrives.
-
-- **Character select** is on the branch **`character-select`**, pushed, waiting for its pull request:
-  - Muki's own character pack in `sprites/characters/`; roster in `js/characters.js` (Leo, Night Owl, Ghost Kid, Rain Runner)
-  - "Pick character" on the room card opens one big front-facing character, ◀ ▶ to switch, dark silhouettes + hints when locked
+- **Merged:** `cozy-room` (PR 5, the isometric room) and `character-select` (PR 6: Muki's character pack, roster in `js/characters.js`, the picker, unlocks, `?dev` on localhost).
   - Unlocks: Leo from the start; Night Owl = a push between midnight and 4am; Ghost Kid = 7 logged days in a row (commit or run); Rain Runner = 3 runs in one Mon–Sun week
   - The profile saves `characterId`, `unlocked` (never taken away) and `log` (every logged day + best streak)
-  - The room shows the front idle; the day scene uses the side sheets (run, walk, jump, nap on the bench)
-  - `localhost:8000/?dev` unlocks everything for one visit
+- **`slower-run`** is pushed, waiting for its pull request: the run cycle and background scroll are a bit slower.
+- **`room-screen`** is pushed, waiting for its pull request:
+  - the room left the main page; a pixel **"My room"** button with a door icon sits in the header (next to Change player)
+  - the room has its own screen at **`#room`**: as big as fits (whole-number scaling), "← Back", "Pick character" lives here now
+  - the browser back button works, `#room` links can be bookmarked, Escape goes back, focus moves to the heading and back to the button
+  - peeks work too: `?user=<name>#room` shows their room read-only ("Their room", no Pick character)
+- **Look check:** on phones the room only fits at 1× (it's 323 pixels wide), so it looks small there.
 
 ## 🧭 Decisions we made
 

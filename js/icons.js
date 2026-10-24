@@ -6,6 +6,7 @@ const ICONS = {
   shoe:   { rows: ["........", "..##....", "..#rr#..", "..#rrr#.", ".#rrrrr#", "#rrrrrr#", "wwwwwwww", "........"], colors: { "#": "var(--ink)", r: "var(--run)", w: "var(--ink-soft)" } },
   tape:   { rows: ["........", "########", "#mmmmmm#", "#m#mm#m#", "#mmmmmm#", "########", "........", "........"], colors: { "#": "var(--ink)", m: "var(--music)" } },
   flame:  { rows: ["...f....", "..ff....", "..fff.f.", ".fffyff.", ".ffyyff.", ".fyyyyf.", "..fyyf..", "........"], colors: { f: "var(--run)", y: "var(--accent)" } },
+  door:   { rows: ["..####..", ".#wwww#.", ".#wwww#.", ".#wwww#.", ".#wwwk#.", ".#wwww#.", ".#wwww#.", "########"], colors: { "#": "var(--ink)", w: "var(--run)", k: "var(--accent)" } },
   star:   { rows: ["...yy...", "...yy...", "yyyyyyyy", ".yyyyyy.", "..yyyy..", ".yy..yy.", ".y....y.", "........"], colors: { y: "var(--accent)" } }
 };
 

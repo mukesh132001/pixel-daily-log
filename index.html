@@ -21,6 +21,7 @@
       </div>
     </div>
     <div class="tools">
+      <button class="btn px btn-ico" id="roomBtn" type="button" hidden><span class="ico sm" data-icon="door"></span><span id="roomBtnText">My room</span><span class="newtag" id="roomNew" hidden>New!</span></button>
       <button class="btn px" id="share" hidden>Copy link</button>
       <button class="btn px" id="switch" hidden>Change player</button>
       <button class="btn px" id="sound" aria-pressed="false">Sound off</button>
@@ -72,9 +73,11 @@
     </div>
   </section>
 
-  <section class="room-card px" id="roomBox" hidden aria-labelledby="hRoom">
+  <!-- The room screen: shown instead of the main page when the address ends in #room -->
+  <section class="room-screen px" id="roomScreen" hidden aria-labelledby="hRoom">
     <div class="room-head">
-      <h2 id="hRoom">Your room</h2>
+      <button class="btn px" id="roomBack" type="button">← Back</button>
+      <h2 id="hRoom" tabindex="-1">My room</h2>
       <button class="btn px" id="pick" type="button">Pick character<span class="newtag" id="pickNew" hidden>New!</span></button>
     </div>
     <div class="room-frame">
