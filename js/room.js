@@ -1,4 +1,5 @@
 // Your room: one cozy isometric room with your character standing in it and your school pennant on the wall.
+// It has its own screen (#room in the address, see main.js) and is drawn as big as fits.
 //
 // The room and furniture are PNGs cut from the ToffeeCraft pack (see sprites/room/CREDITS.md), drawn 1:1
 // so every pixel stays crisp. Everything is placed in room pixels on a 323x256 canvas, and CSS scales the
@@ -84,12 +85,12 @@ export function createRoom(canvas) {
   ready.then(loaded => { imgs = loaded; draw(); }).catch(e => console.warn(e.message));
   if (!reduced) setInterval(() => { frame = (frame + 1) % 4; if (player) draw(); }, FRAME_MS.idle);
 
-  // Scale the canvas by a whole number of *screen* pixels that still fits the card.
-  // (Counting device pixels keeps it crisp on screens set to 125% or 150%.)
+  // Scale the canvas by the biggest whole number of *screen* pixels that still fits the frame,
+  // both across and down. (Counting device pixels keeps it crisp on screens set to 125% or 150%.)
   function fit() {
     const dpr = window.devicePixelRatio || 1;
-    const room = canvas.parentElement.clientWidth;
-    const k = Math.max(1, Math.floor(room * dpr / W));
+    const box = canvas.parentElement;
+    const k = Math.max(1, Math.floor(Math.min(box.clientWidth * dpr / W, box.clientHeight * dpr / H)));
     canvas.style.width = `${(W * k) / dpr}px`;
   }
   new ResizeObserver(fit).observe(canvas.parentElement);

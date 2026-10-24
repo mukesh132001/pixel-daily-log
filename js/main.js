@@ -46,7 +46,7 @@ let S = null;
 let sel = DAYS.findIndex(d => key(d) === TODAY_K);
 let buttons = [];
 
-const WORLD_PARTS = ["calbox", "roomBox", "panels", "tabs", "stats", "who", "share", "switch", "caption"];
+const WORLD_PARTS = ["calbox", "roomBtn", "panels", "tabs", "stats", "who", "share", "switch", "caption"];
 
 // ---------- loading a world ----------
 
@@ -230,6 +230,8 @@ function showWorld() {
   $("bio").textContent = (S.me && S.me.about) || (S.profile && S.profile.bio) || "What you did";
   drawAvatar(S.profile && S.profile.avatar_url);
   document.title = `${name}’s pixel daily log`;
+  $("roomBtnText").textContent = peek ? "Their room" : "My room";
+  $("hRoom").textContent = peek ? `${name}’s room` : "My room";
 
   refreshPace();
   refreshStats();
@@ -245,6 +247,7 @@ function showWorld() {
     if (x.active || x.ev.length) { sel = i; break; }
   }
   select(sel, false);
+  route();   // a link ending in #room goes straight to the room
 }
 
 // Your own character in the scene and the room, never someone else's.
@@ -280,14 +283,57 @@ function checkUnlocks() {
   saveProfile(me);
 
   if (fresh.length) {
-    $("pickNew").hidden = false;
+    $("pickNew").hidden = $("roomNew").hidden = false;
     sfx.pr();
   }
 }
 
+// ---------- the room screen (#room) ----------
+
+// The room is its own screen at #room, so the browser's back button works and the link can be bookmarked.
+// roomPushed: we added the #room history entry ourselves (clicked "My room"), so going back is safe.
+let roomOpen = false, roomPushed = false, mainTitle = "";
+
+// Show whichever screen the address asks for. The room needs a loaded world.
+function route() {
+  const want = location.hash === "#room" && !!S;
+  if (want === roomOpen) return;
+  roomOpen = want;
+  document.body.classList.toggle("is-room", want);
+  $("roomScreen").hidden = !want;
+  if (want) {
+    mainTitle = document.title;
+    document.title = `${$("hRoom").textContent} · Pixel daily log`;
+    window.scrollTo(0, 0);
+    $("hRoom").focus();
+    // Opened while the page is still loading (a #room link): the browser resets focus when loading ends.
+    if (document.readyState !== "complete") addEventListener("load", () => roomOpen && $("hRoom").focus(), { once: true });
+  } else {
+    document.title = mainTitle;
+    if (S) $("roomBtn").focus();
+  }
+}
+
+function openRoom() {
+  roomPushed = true;
+  location.hash = "room";   // the hashchange listener calls route()
+}
+
+function closeRoom() {
+  if (roomPushed) { roomPushed = false; history.back(); }   // same as the browser's back button
+  else {
+    // Came straight from a #room link: going back would leave the site, so just drop the #room.
+    history.replaceState(null, "", location.pathname + location.search);
+    route();
+  }
+}
+
+window.addEventListener("hashchange", route);
+
 // typed: what to leave in the username box (after a failed load).
 function showStart(typed = "") {
   S = null;
+  route();   // no world, so no room either
   document.body.classList.add("is-title");
   $("start").hidden = false;
   WORLD_PARTS.forEach(id => ($(id).hidden = true));
@@ -683,10 +729,13 @@ document.querySelectorAll(".tab").forEach(tab => {
 
 $("pick").addEventListener("click", () => {
   if (!S || !S.me) return;
-  $("pickNew").hidden = true;
+  $("pickNew").hidden = $("roomNew").hidden = true;
   picker.open(characterFor(S.me).id, unlockedFor(S.me), DEV);
   sfx.select();
 });
+
+$("roomBtn").addEventListener("click", () => { openRoom(); sfx.select(); });
+$("roomBack").addEventListener("click", () => { closeRoom(); sfx.select(); });
 
 $("stravaConnect").addEventListener("click", () => {
   if (S && S.me) strava.startConnect(S.me.id);
@@ -714,6 +763,10 @@ canvas.addEventListener("click", () => scene.action());
 
 document.addEventListener("keydown", e => {
   if ($("picker").open) return;   // the character picker uses the arrow keys itself
+  if (roomOpen) {                 // in the room, Escape goes back and the day keys rest
+    if (e.key === "Escape") { e.preventDefault(); closeRoom(); }
+    return;
+  }
   if (e.target.matches && e.target.matches("input, a, textarea")) return;
   if (e.key === "ArrowRight" && S) { e.preventDefault(); select(sel + 1, true); buttons[sel] && buttons[sel].focus({ preventScroll: true }); }
   else if (e.key === "ArrowLeft" && S) { e.preventDefault(); select(sel - 1, true); buttons[sel] && buttons[sel].focus({ preventScroll: true }); }
