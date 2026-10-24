@@ -11,6 +11,13 @@ export const store = {
   },
   set(k, v) {
     try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+  },
+  remove(k) {
+    try { localStorage.removeItem(k); } catch (e) {}
+  },
+  // Every saved key that starts with prefix.
+  keys(prefix) {
+    try { return Object.keys(localStorage).filter(k => k.startsWith(prefix)); } catch (e) { return []; }
   }
 };
 
