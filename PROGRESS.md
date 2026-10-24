@@ -30,10 +30,14 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
   - long lists in the cards (GitHub "This day", "Most active in", the runs list) show 4 items, then a pixel "Show all N ▾" / "Show less ▴" button (`aria-expanded`)
   - picking another day folds them back up; "Most active in" can now show every repo, not just the top 4
   - the three cards line up at the top with equal heights on wide screens (phones keep the tabs)
-- **`github-cache`** is pushed, waiting for its pull request:
+- **Also merged:** `github-cache` (PR 11):
   - every GitHub answer is saved in the browser (`pdl:gh:<url>`) and reused for 15 minutes; trimmed to the fields we use, cleared after a week
   - when the hourly limit is hit, older saved data is used and the GitHub card says "Showing saved data from 20 min ago"
   - with nothing saved, messages give the reset time from `X-RateLimit-Reset` ("Try again after 3:42 PM")
+- **`github-proxy`** is pushed, waiting for its pull request (**and the worker must be pasted into Cloudflare**, see worker/README.md):
+  - the worker has `GET /github/...` for exactly the 3 GitHub calls the site makes, adds `GITHUB_TOKEN` (5,000 requests an hour, shared), caches answers 10 minutes at the edge (`X-Proxy-Cache: HIT/MISS`)
+  - js/github.js asks the worker first and falls back to api.github.com; the browser cache from PR 11 still wraps both
+  - open question: the Cache API may do nothing on `workers.dev`; check with the curl in worker/README.md (a custom domain would fix it)
 
 ## 🧭 Decisions we made
 
