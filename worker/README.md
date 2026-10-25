@@ -36,7 +36,7 @@ In a terminal (Git Bash or macOS Terminal), run this twice:
 curl -s -o /dev/null -D - -H "Origin: https://mukesh132001.github.io"   https://pixel-daily-log-strava.mukeshethiraj0.workers.dev/github/users/mukesh132001 | grep -i "^HTTP\|x-proxy-cache"
 ```
 
-The first run should say `200` and `x-proxy-cache: MISS`, the second `x-proxy-cache: HIT` (Cloudflare kept the answer). If it says `MISS` every time, the cache isn't active on the `workers.dev` address; everything still works through the token, and a custom domain would turn the cache on. Opening the address straight in a browser shows `{"error":"origin not allowed"}`, which is correct.
+The first run should say `200` and `x-proxy-cache: MISS`, the second `x-proxy-cache: HIT` (Cloudflare kept the answer). (Checked on Oct 25, 2026: the cache works on the `workers.dev` address.) Opening the address straight in a browser shows `{"error":"origin not allowed"}`, which is correct.
 
 ## Endpoints
 
