@@ -1,19 +1,22 @@
-// Pixel daily log: Strava helper, running on Cloudflare Workers.
+// Pixel daily log: Strava helper and GitHub proxy, running on Cloudflare Workers.
 //
-// Why this exists: Strava gives your app a Client Secret. It can't live in the
-// public website, so this tiny server keeps it and does the private steps:
+// Why this exists: Strava gives your app a Client Secret, and GitHub allows far more requests with a token.
+// Neither can live in the public website, so this tiny server keeps them and does the private steps:
 //   POST /token        swap the one-time login code for tokens
 //   POST /refresh      get a fresh access token when the old one expires
 //   GET  /activities   fetch the signed-in athlete's activities
 //   POST /deauthorize  disconnect Strava
 //   GET/POST /webhook  Strava's webhook endpoint (required by Strava's API terms)
+//   GET  /github/...   the few GitHub API calls the site makes, with our token, cached for 10 minutes
 //
 // Settings in Cloudflare (Worker > Settings > Variables and Secrets):
 //   STRAVA_CLIENT_ID      Text    your Client ID (289322)
 //   STRAVA_CLIENT_SECRET  Secret  your Client Secret from strava.com/settings/api
 //   WEBHOOK_VERIFY_TOKEN  Secret  any random word you choose (only needed for webhooks)
+//   GITHUB_TOKEN          Secret  a GitHub token (public read access is enough). Never print or log it.
 //
-// This worker stores nothing. Tokens live only in each visitor's own browser.
+// This worker stores nothing except public GitHub answers in Cloudflare's cache for 10 minutes.
+// Strava tokens live only in each visitor's own browser.
 
 const ALLOWED_ORIGINS = [
   "https://mukesh132001.github.io",
@@ -21,15 +24,26 @@ const ALLOWED_ORIGINS = [
 ];
 
 const STRAVA = "https://www.strava.com";
+const GITHUB = "https://api.github.com";
+const GITHUB_CACHE_SECONDS = 600;
+
+// The only GitHub calls we pass on: exactly the ones js/github.js makes.
+// path: a pattern for everything after /github/; query: the parameters allowed (small whole numbers only).
+const GITHUB_ROUTES = [
+  { path: /^users\/[A-Za-z0-9-]{1,39}$/, query: [] },                                                       // a profile
+  { path: /^users\/[A-Za-z0-9-]{1,39}\/events\/public$/, query: ["per_page", "page"] },                     // public activity
+  { path: /^repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}\/commits\/[0-9a-f]{7,40}$/, query: [] }        // one commit
+];
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
     const cors = {
       "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Expose-Headers": "X-RateLimit-Reset, X-Proxy-Cache",
       "Vary": "Origin"
     };
     const json = (data, status = 200) =>
@@ -86,6 +100,10 @@ export default {
         })));
       }
 
+      if (url.pathname.startsWith("/github/") && request.method === "GET") {
+        return await githubRequest(url, env, ctx, cors, json);
+      }
+
       if (url.pathname === "/deauthorize" && request.method === "POST") {
         const auth = request.headers.get("Authorization");
         if (!auth) return json({ error: "missing token" }, 401);
@@ -118,4 +136,59 @@ async function tokenRequest(env, params, json, includeAthlete) {
     out.athlete = { id: d.athlete.id, firstname: d.athlete.firstname, lastname: d.athlete.lastname };
   }
   return json(out);
+}
+
+// Pass one allowed GitHub call on with our token. Answers that worked are kept in Cloudflare's cache
+// for 10 minutes, so many visitors share one request. X-Proxy-Cache says HIT or MISS, for checking.
+async function githubRequest(url, env, ctx, cors, json) {
+  const path = url.pathname.slice("/github/".length);
+  const route = GITHUB_ROUTES.find(r => r.path.test(path));
+  if (!route) return json({ error: "not allowed" }, 403);
+
+  // Rebuild the address from the checked pieces, in a fixed order, so it doubles as the cache key.
+  const q = new URLSearchParams();
+  for (const [k, v] of url.searchParams) {
+    if (!route.query.includes(k) || !/^\d{1,3}$/.test(v)) return json({ error: "not allowed" }, 403);
+  }
+  route.query.forEach(k => { if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k)); });
+  const qs = q.toString();
+  const target = `${GITHUB}/${path}${qs ? "?" + qs : ""}`;
+  if (!env.GITHUB_TOKEN) return json({ error: "github token not set" }, 503);   // the site falls back to GitHub directly
+
+  // If the cache isn't available (it does nothing in the dashboard's preview), we just skip it.
+  const cache = caches.default;
+  const key = new Request(target);
+  const hit = await cache.match(key).catch(() => null);
+  if (hit) return withCors(hit, cors, "HIT");
+
+  const r = await fetch(target, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      "User-Agent": "pixel-daily-log-worker",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  });
+  if (!r.ok) {
+    // Pass on only the status and, for the hourly limit, when it resets. Never GitHub's other headers.
+    const headers = { ...cors, "Content-Type": "application/json", "X-Proxy-Cache": "MISS" };
+    const reset = r.headers.get("X-RateLimit-Reset");
+    if (reset && /^\d+$/.test(reset)) headers["X-RateLimit-Reset"] = reset;
+    return new Response(JSON.stringify({ error: "github error", status: r.status }), { status: r.status, headers });
+  }
+
+  // A clean copy for the cache (no CORS headers: those depend on who's asking).
+  const body = await r.text();
+  const fresh = new Response(body, {
+    headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${GITHUB_CACHE_SECONDS}` }
+  });
+  ctx.waitUntil(cache.put(key, fresh.clone()).catch(() => {}));
+  return withCors(fresh, cors, "MISS");
+}
+
+function withCors(response, cors, status) {
+  const out = new Response(response.body, response);
+  Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
+  out.headers.set("X-Proxy-Cache", status);
+  return out;
 }

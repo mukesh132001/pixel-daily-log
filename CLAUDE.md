@@ -23,7 +23,7 @@ Design principles (keep these in every decision):
 
 - Website (GitHub Pages, publishes from `main`): https://mukesh132001.github.io/pixel-daily-log/
 - Repo: https://github.com/mukesh132001/pixel-daily-log
-- Strava worker (Cloudflare): https://pixel-daily-log-strava.mukeshethiraj0.workers.dev
+- Worker (Cloudflare): https://pixel-daily-log-strava.mukeshethiraj0.workers.dev (Strava helper + GitHub proxy at /github/...)
 - Strava API app: Client ID `289322`, athlete limit currently **10**.
 
 ## How it's built
@@ -50,7 +50,7 @@ js/icons.js         8x8 pixel SVG icons (shoe, laptop, flame, star, tape)
 js/dates.js         date helpers and the 4-week window
 js/storage.js       safe localStorage wrapper
 js/sound.js         Web Audio beeps (muted by default)
-worker/strava-worker.js   Cloudflare Worker: holds the Strava secret, proxies token/activity calls
+worker/strava-worker.js   Cloudflare Worker: holds the Strava secret and GITHUB_TOKEN, proxies Strava calls and an allowlist of GitHub calls
 ```
 
 Test locally (modules need a server, double-clicking index.html won't work):
@@ -62,7 +62,8 @@ Open http://localhost:8000/?dev to unlock every character for that visit (localh
 
 ## Rules you must follow
 
-- **Never put secrets in the repo.** The Strava Client Secret lives only in Cloudflare (Worker > Settings > Variables and Secrets). `js/config.js` holds public values only.
+- **Never put secrets in the repo.** The Strava Client Secret and `GITHUB_TOKEN` live only in Cloudflare (Worker > Settings > Variables and Secrets). Never print, log or commit them. `js/config.js` holds public values only.
+- The GitHub proxy only passes on the calls in `GITHUB_ROUTES` (worker). If js/github.js starts calling a new GitHub endpoint, add it there too, or it silently falls back to direct calls.
 - **Worker changes don't deploy with git.** After editing `worker/strava-worker.js`, tell Muki to paste the whole file into the Cloudflare editor and click Deploy (`cat worker/strava-worker.js | pbcopy` copies it).
 - The worker only accepts requests from `https://mukesh132001.github.io` and `http://localhost:8000` (see `ALLOWED_ORIGINS`).
 - Strava tokens and runs stay in the browser that connected them, and only show on the linked player's world. Keep it that way.
