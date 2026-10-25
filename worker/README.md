@@ -51,4 +51,4 @@ The first run should say `200` and `x-proxy-cache: MISS`, the second `x-proxy-ca
 
 ## Allowed websites
 
-Only the sites in `ALLOWED_ORIGINS` at the top of `strava-worker.js` can use this worker: your GitHub Pages site and `http://localhost:8000` for testing.
+Only the sites in `ALLOWED_ORIGINS` at the top of `strava-worker.js` can use this worker: your GitHub Pages site, plus these for testing: `http://localhost:8000` (python's server) and `http://localhost:5500` / `http://127.0.0.1:5500` (VS Code's Live Server).
