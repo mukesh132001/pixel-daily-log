@@ -65,7 +65,7 @@ Open http://localhost:8000/?dev to unlock every character for that visit (localh
 - **Never put secrets in the repo.** The Strava Client Secret and `GITHUB_TOKEN` live only in Cloudflare (Worker > Settings > Variables and Secrets). Never print, log or commit them. `js/config.js` holds public values only.
 - The GitHub proxy only passes on the calls in `GITHUB_ROUTES` (worker). If js/github.js starts calling a new GitHub endpoint, add it there too, or it silently falls back to direct calls.
 - **Worker changes don't deploy with git.** After editing `worker/strava-worker.js`, tell Muki to paste the whole file into the Cloudflare editor and click Deploy (`cat worker/strava-worker.js | pbcopy` copies it).
-- The worker only accepts requests from `https://mukesh132001.github.io` and `http://localhost:8000` (see `ALLOWED_ORIGINS`).
+- The worker only accepts requests from `https://mukesh132001.github.io`, `http://localhost:8000` and Live Server's `http://localhost:5500` / `http://127.0.0.1:5500` (see `ALLOWED_ORIGINS`).
 - Strava tokens and runs stay in the browser that connected them, and only show on the linked player's world. Keep it that way.
 - Respect API limits: anonymous GitHub API is ~60 requests/hour (js/github.js caches every answer for 15 minutes and falls back to saved data when limited); the public events feed covers ~90 days and no longer includes commit lists (fetch commit messages individually, capped per day).
 - Don't copy existing games' characters, logos or artwork. Draw original pixel art. For schools, draw our own pennant with the name/initials and chosen colors, never an official logo. Don't use trademarked names like "FIFA" for features (call it a pixel football game).

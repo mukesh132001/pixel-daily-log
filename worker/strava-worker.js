@@ -18,9 +18,12 @@
 // This worker stores nothing except public GitHub answers in Cloudflare's cache for 10 minutes.
 // Strava tokens live only in each visitor's own browser.
 
+// The live site, plus local testing: python's http.server (8000) and VS Code's Live Server (5500).
 const ALLOWED_ORIGINS = [
   "https://mukesh132001.github.io",
-  "http://localhost:8000"
+  "http://localhost:8000",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500"
 ];
 
 const STRAVA = "https://www.strava.com";
