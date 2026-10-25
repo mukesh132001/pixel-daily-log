@@ -281,7 +281,7 @@ function showWorld() {
 function dressPlayer() {
   const c = characterFor(S.me);
   scene.setCharacter(c);
-  room.setPlayer(c, S.me ? S.me.school : null);
+  room.setPlayer(c, S.me ? S.me.school : null, !S.me);   // a visitor can watch, not steer
 }
 
 // ---------- unlocking characters ----------
