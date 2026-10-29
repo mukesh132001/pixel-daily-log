@@ -54,12 +54,6 @@ export function meetsRule(rule, facts) {
 // Is this character yours? unlocked is the profile's { id: "date it was earned" }.
 export const isUnlocked = (c, unlocked) => c.unlock.type === "start" || !!(unlocked && unlocked[c.id]);
 
-// The character to show: your pick if you have it, otherwise the default.
-export function currentCharacter(id, unlocked) {
-  const c = byId(id);
-  return c && isUnlocked(c, unlocked) ? c : byId(DEFAULT_ID);
-}
-
 // Images load once and are shared by the room, the scene and the select screen.
 const images = new Map();
 export function loadImage(src) {

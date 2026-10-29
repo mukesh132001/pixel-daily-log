@@ -1,0 +1,215 @@
+{
+  "nativeSize": [
+    256,
+    256
+  ],
+  "tileSize": 10,
+  "grid": [
+    10,
+    10
+  ],
+  "wallHeight": 72,
+  "origin": {
+    "note": "screen = (128 + (x - y), 112 + (x + y)/2 - z) in native pixels; x,y,z are world units, 10 units = 1 tile"
+  },
+  "spawnTile": [
+    5,
+    7
+  ],
+  "layers": "draw shell, then wall items, then floor items, then objects and the character sorted by depthY (smaller first)",
+  "items": [
+    {
+      "id": "window",
+      "sprite": "window.png",
+      "layer": "wall",
+      "x": 167,
+      "y": 64,
+      "w": 45,
+      "h": 63,
+      "unlockLevel": 1
+    },
+    {
+      "id": "door",
+      "sprite": "door.png",
+      "layer": "wall",
+      "x": 208,
+      "y": 106,
+      "w": 19,
+      "h": 56,
+      "unlockLevel": 1,
+      "interact": {
+        "action": "next_room",
+        "tile": [
+          8,
+          1
+        ],
+        "locked": true
+      }
+    },
+    {
+      "id": "poster",
+      "sprite": "poster.png",
+      "layer": "wall",
+      "x": 56,
+      "y": 81,
+      "w": 19,
+      "h": 32,
+      "unlockLevel": 4
+    },
+    {
+      "id": "string_lights",
+      "sprite": "string_lights.png",
+      "layer": "wall",
+      "x": 30,
+      "y": 47,
+      "w": 97,
+      "h": 52,
+      "unlockLevel": 5
+    },
+    {
+      "id": "rug",
+      "sprite": "rug.png",
+      "layer": "floor",
+      "x": 94,
+      "y": 152,
+      "w": 71,
+      "h": 36,
+      "unlockLevel": 2
+    },
+    {
+      "id": "closet",
+      "sprite": "closet.png",
+      "layer": "object",
+      "x": 123,
+      "y": 64,
+      "w": 37,
+      "h": 71,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 1,
+        "y": 0,
+        "w": 2,
+        "d": 2
+      },
+      "depthY": 133.5,
+      "interact": {
+        "action": "closet",
+        "tile": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "id": "desk",
+      "sprite": "desk.png",
+      "layer": "object",
+      "x": 162,
+      "y": 110,
+      "w": 47,
+      "h": 50,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 5,
+        "y": 0,
+        "w": 3,
+        "d": 2
+      },
+      "depthY": 160.0,
+      "interact": {
+        "action": "desk",
+        "tile": [
+          6,
+          3
+        ]
+      }
+    },
+    {
+      "id": "chair",
+      "sprite": "chair.png",
+      "layer": "object",
+      "x": 158,
+      "y": 131,
+      "w": 23,
+      "h": 27,
+      "unlockLevel": 1,
+      "depthY": 161.0
+    },
+    {
+      "id": "bookshelf",
+      "sprite": "bookshelf.png",
+      "layer": "object",
+      "x": 100,
+      "y": 73,
+      "w": 29,
+      "h": 59,
+      "unlockLevel": 3,
+      "blockedTiles": {
+        "x": 0,
+        "y": 1,
+        "w": 1,
+        "d": 2
+      },
+      "depthY": 131.0
+    },
+    {
+      "id": "lamp",
+      "sprite": "lamp.png",
+      "layer": "object",
+      "x": 74,
+      "y": 98,
+      "w": 33,
+      "h": 41,
+      "unlockLevel": 2,
+      "blockedTiles": {
+        "x": 0,
+        "y": 4,
+        "w": 1,
+        "d": 1
+      },
+      "depthY": 140.0
+    },
+    {
+      "id": "bed",
+      "sprite": "bed.png",
+      "layer": "object",
+      "x": 56,
+      "y": 115,
+      "w": 55,
+      "h": 50,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
+        "d": 3
+      },
+      "depthY": 164.0,
+      "interact": {
+        "action": "bed",
+        "tile": [
+          4,
+          6
+        ]
+      }
+    },
+    {
+      "id": "plant",
+      "sprite": "plant.png",
+      "layer": "object",
+      "x": 31,
+      "y": 127,
+      "w": 22,
+      "h": 38,
+      "unlockLevel": 3,
+      "blockedTiles": {
+        "x": 0,
+        "y": 9,
+        "w": 1,
+        "d": 1
+      },
+      "depthY": 166.0
+    }
+  ],
+  "shell": "room_shell.png"
+}
