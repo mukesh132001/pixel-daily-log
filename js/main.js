@@ -10,8 +10,8 @@ import {
 import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
 import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
-import { createRoom } from "./room.js";
-import { ROSTER, DEFAULT_ID, byId, currentCharacter, isUnlocked, meetsRule } from "./characters.js";
+import { createRoom, ROOM_LEVEL, MAX_LEVEL } from "./room.js";
+import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule } from "./characters.js";
 import { createPicker } from "./picker.js";
 import { setupLogin, settleAccount } from "./login.js";
 import { fillIcons, iconSpan } from "./icons.js";
@@ -21,15 +21,19 @@ fillIcons();
 setupLogin();   // the Sign in button (only when Supabase is set up in config.js)
 const canvas = $("scene");
 const scene = createScene(canvas);
-const room = createRoom($("room"));
+const room = createRoom($("room"), { bubble: $("roomBubble"), bubbleText: $("roomBubbleText"), open: $("roomOpen"), pad: $("roomPad") });
 
 // Dev only: open http://localhost:8000/?dev to unlock every character for this visit (nothing is saved).
+// In the room, ?dev also shows a level picker (or start on one with ?dev&level=3).
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).has("dev");
 const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
-// Your picked character (if you've unlocked it), or the default for peeks and new players.
-const characterFor = me => (me ? currentCharacter(me.characterId, unlockedFor(me)) : byId(DEFAULT_ID));
+const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
+// Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
+// so a pick isn't checked against your unlocks.)
+const characterFor = me => (me && byId(me.characterId)) || byId(DEFAULT_ID);
 scene.setCharacter(characterFor(loadProfile()));
 
+let fromCloset = false;   // the picker was opened from the room's closet
 const picker = createPicker({
   dialog: $("picker"), art: $("pickArt"), name: $("pickName"), count: $("pickCount"), hint: $("pickHint"),
   dev: $("pickDev"), prev: $("pickPrev"), next: $("pickNext"), go: $("pickGo"), close: $("pickClose")
@@ -38,8 +42,26 @@ const picker = createPicker({
   S.me = { ...S.me, characterId: id };
   saveProfile(S.me);
   dressPlayer();
+  if (fromCloset) room.standAt("closet");   // step out of the closet in the new look
   sfx.select();
 });
+$("picker").addEventListener("close", () => (fromCloset = false));
+
+// The closet in your room opens the picker with every character in it.
+room.onAction(action => {
+  if (action !== "closet" || !S || !S.me) return;
+  fromCloset = true;
+  picker.open(characterFor(S.me).id, EVERYONE, false, true);
+  sfx.select();
+});
+
+if (DEV) {
+  const pick = $("roomLevel"), start = Number(new URLSearchParams(location.search).get("level")) || ROOM_LEVEL;
+  pick.value = String(Math.max(1, Math.min(MAX_LEVEL, start)));
+  room.setLevel(Number(pick.value));
+  pick.addEventListener("change", () => { room.setLevel(Number(pick.value)); pick.blur(); });
+  $("roomDev").hidden = false;
+}
 
 // The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, eventsError, runs, strava, stravaError }
 // me is your profile on your own world, or null when peeking at someone else's (read-only).
