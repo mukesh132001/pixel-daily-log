@@ -200,6 +200,25 @@ button,input{font:inherit;color:inherit}
   grid-template-columns:repeat(2,56px);grid-template-rows:repeat(2,56px);gap:12px;touch-action:none;user-select:none;-webkit-user-select:none}
 @media (pointer:coarse){ .room-pad:not([hidden]){display:grid} }
 .room-pad .btn{min-height:0;padding:0;font-size:1.7rem;line-height:1}
+/* room level + XP in the header: "Lv 3", a chunky pixel bar, "220 / 300 XP" */
+.room-xp{display:flex;align-items:center;gap:8px;flex:none;border:0;cursor:pointer;color:var(--ink);font:inherit;font-size:1.15rem;
+  padding:4px 10px;min-height:40px}
+.room-xp:hover{background:var(--tile)}
+.room-xp b{font-family:"Pixelify Sans",system-ui,sans-serif;white-space:nowrap}
+.xp-bar{display:block;width:72px;height:12px;background:var(--empty);box-shadow:0 0 0 2px var(--line);position:relative}
+.xp-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--code)}
+.xp-text{white-space:nowrap;color:var(--ink-soft)}
+.xp-box{text-align:left;align-items:stretch}
+.xp-box h3{margin:14px 0 4px}
+.xp-now{font-size:1.3rem}
+.xp-rules{margin:0;padding-left:1.2em}
+.xp-rules li{margin:3px 0}
+/* "Level up!" across the top of the room */
+.room-banner{position:absolute;left:50%;top:18px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;
+  gap:2px;padding:8px 18px;text-align:center;width:max-content;max-width:calc(100% - 40px);cursor:pointer;animation:banner-in .35s steps(4) both}
+.room-banner[hidden]{display:none}
+.room-banner-title{font-family:"Pixelify Sans",system-ui,sans-serif;font-size:1.6rem;color:var(--run);white-space:nowrap}
+@keyframes banner-in{from{transform:translate(-50%,-40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .room-dev{display:flex;align-items:center;gap:6px;font-size:1.1rem;flex:none}
 .room-dev select{font:inherit;padding:2px 4px}
 
@@ -321,10 +340,16 @@ footer{margin-top:32px;color:var(--ink-soft);font-size:1.05rem;max-width:72ch}
   .room-head{gap:8px}
   .room-head .btn{padding:6px 9px;font-size:1.1rem;min-height:40px}
   .room-head h2{font-size:1.25rem}
+  /* no room for the heading next to the buttons: screen readers still get it, and the tab title names the room */
+  .room-head h2{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .room-head .room-xp{margin-left:auto}
+  .room-xp{padding:4px 8px;font-size:1.05rem}
+  .xp-bar{width:44px}
+  .xp-text{display:none}   /* phones: "Lv 3" and the bar; tap for the numbers */
   .seg{padding:8px 10px}
   .seg b{font-size:1.3rem}
 }
 @media (prefers-reduced-motion: reduce){
-  .day.today::after,.press,.day.e4,.newtag{animation:none}
+  .day.today::after,.press,.day.e4,.newtag,.room-banner{animation:none}
   .day{transition:none}
 }

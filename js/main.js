@@ -10,7 +10,8 @@ import {
 import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
 import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
-import { createRoom, ROOM_LEVEL, MAX_LEVEL } from "./room.js";
+import { createRoom } from "./room.js";
+import { dayXp, streakEnding, updateLedger, totalXp, progress } from "./xp.js";
 import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule } from "./characters.js";
 import { createPicker } from "./picker.js";
 import { setupLogin, settleAccount } from "./login.js";
@@ -24,8 +25,12 @@ const scene = createScene(canvas);
 const room = createRoom($("room"), { bubble: $("roomBubble"), bubbleText: $("roomBubbleText"), open: $("roomOpen"), pad: $("roomPad") });
 
 // Dev only: open http://localhost:8000/?dev to unlock every character for this visit (nothing is saved).
-// In the room, ?dev also shows a level picker (or start on one with ?dev&level=3).
-const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).has("dev");
+// In the room, ?dev also shows a level picker (or start on one with ?dev&level=3), and ?dev&xp=500 pretends
+// you have 500 XP for this visit (nothing is saved, not even the level-up you saw).
+const PARAMS = new URLSearchParams(location.search);
+const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && PARAMS.has("dev");
+const DEV_XP = DEV && PARAMS.has("xp") ? Math.max(0, Number(PARAMS.get("xp")) || 0) : null;
+let devLevel = DEV ? Math.max(0, Math.min(5, Number(PARAMS.get("level")) || 0)) || null : null;   // the dev picker's level
 const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
 const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
 // Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
@@ -55,11 +60,14 @@ room.onAction(action => {
   sfx.select();
 });
 
+// The dev level picker shows the room at any level 1-5, whatever your XP says.
 if (DEV) {
-  const pick = $("roomLevel"), start = Number(new URLSearchParams(location.search).get("level")) || ROOM_LEVEL;
-  pick.value = String(Math.max(1, Math.min(MAX_LEVEL, start)));
-  room.setLevel(Number(pick.value));
-  pick.addEventListener("change", () => { room.setLevel(Number(pick.value)); pick.blur(); });
+  if (devLevel) $("roomLevel").value = String(devLevel);
+  $("roomLevel").addEventListener("change", () => {
+    devLevel = Number($("roomLevel").value);
+    room.setLevel(devLevel);
+    $("roomLevel").blur();
+  });
   $("roomDev").hidden = false;
 }
 
@@ -122,6 +130,8 @@ async function loadWorld(name, me) {
     profile,
     events,
     eventsOk: eventsR.status === "fulfilled",
+    contribOk,
+    stravaFailed: stravaR.status === "rejected",
     eventsError: eventsR.status === "rejected" ? eventsR.reason : null,
     contrib: contribOk ? contribR.value.byDay : levelsFromEvents(events),
     yearTotal: contribOk ? contribR.value.yearTotal : null,
@@ -266,6 +276,7 @@ function showWorld() {
   // Peeking at someone else's world is read-only: no adding runs, no Strava, no picking characters.
   const peek = !S.me;
   if (!peek) checkUnlocks();
+  else refreshLevel();
   dressPlayer();
   $("pick").hidden = peek;
   $("share").hidden = !S.user;
@@ -330,14 +341,112 @@ function checkUnlocks() {
   const unlocked = { ...(me.unlocked || {}) };
   const fresh = ROSTER.filter(c => !isUnlocked(c, unlocked) && meetsRule(c.unlock, facts));
   fresh.forEach(c => (unlocked[c.id] = TODAY_K));
-  S.me = me = { ...me, unlocked };
+
+  // XP: work out every day we have data for again and write it into the ledger. If GitHub's contributions
+  // or Strava didn't load this time, days are only raised, never lowered.
+  const from = createdKey(me), first = key(DAYS[0]);
+  const fresher = xpDays(infos, from, me.log.days.filter(k => k < first));
+  const keepHigher = (!!S.user && !S.contribOk) || S.stravaFailed;
+  const xp = updateLedger(me.xp, fresher, { from, keepHigher, today: TODAY_K });
+
+  S.me = me = { ...me, unlocked, xp };
   saveProfile(me);
 
   if (fresh.length) {
     $("pickNew").hidden = $("roomNew").hidden = false;
     sfx.pr();
   }
+  refreshLevel();
 }
+
+// ---------- XP and the room's level ----------
+
+// The first day that earns XP: the day your profile was made, so everyone starts at level 1.
+const createdKey = me => { const d = new Date(me.createdAt); return isNaN(d) ? TODAY_K : key(d); };
+
+// XP for each day (from `from` on): its GitHub contributions, runs and walks, and the streak it's part of.
+// earlier: active days before the 4 weeks (from your saved log), so a long streak keeps its bonus.
+function xpDays(infos, from, earlier) {
+  const days = infos.filter(x => x.k >= from);
+  const active = new Set([...earlier, ...days.filter(x => dayXp({ contributions: x.count, runs: x.runs }) > 0).map(x => x.k)]);
+  return days.map(x => ({ k: x.k, xp: dayXp({ contributions: x.count, runs: x.runs, streak: streakEnding(x.k, active, from) }) }));
+}
+
+// Your total XP, or for a peek, an estimate from their last 4 weeks of public GitHub (nothing is saved).
+function xpTotal() {
+  if (DEV_XP != null) return DEV_XP;
+  if (S.me) return totalXp(S.me.xp);
+  const infos = DAYS.map((_, i) => info(i)).filter(x => !x.future);
+  return xpDays(infos, "", []).reduce((n, d) => n + d.xp, 0);
+}
+
+// "rug, lamp and string lights"
+function pieceNames(ids) {
+  const names = ids.map(id => id.replace(/_/g, " "));
+  return names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+}
+
+// The level and XP bar in the room header, and the furniture that goes with the level.
+function refreshLevel() {
+  const p = progress(xpTotal()), approx = S.me ? "" : "~";
+  $("xpLevel").textContent = `${approx}Lv ${p.level}`;
+  $("xpFill").style.width = `${Math.round(p.frac * 100)}%`;
+  $("xpText").textContent = p.next == null ? `${approx}${p.total} XP · max` : `${approx}${p.total} / ${p.next} XP`;
+  $("roomXp").setAttribute("aria-label", `${S.me ? "" : "About "}level ${p.level}, ${p.total} XP` +
+    (p.next == null ? ", the top level" : ` of ${p.next} for level ${p.level + 1}`) + ". How XP works");
+  $("roomXp").hidden = false;
+  room.setLevel(devLevel || p.level);
+  if (DEV && !devLevel) $("roomLevel").value = String(Math.min(5, p.level));
+}
+
+// Opening your room after reaching a new level: a "Level up!" banner and the new furniture drops in.
+// levelSeen remembers it, so each level gets celebrated once (on any device, if you're signed in).
+let bannerTimer = null;
+async function celebrate() {
+  if (!S || !S.me) return;
+  const level = progress(xpTotal()).level, seen = S.me.levelSeen || 1;
+  if (level <= seen) return;
+  if (DEV_XP == null) { S.me = { ...S.me, levelSeen: level }; saveProfile(S.me); }
+  const ids = await room.piecesBetween(seen, level);
+  $("bannerLevel").textContent = `Lv ${level}`;
+  $("bannerText").textContent = ids.length ? `New in your room: ${pieceNames(ids)}.`
+    : "More furniture is on the way.";
+  $("roomBanner").hidden = false;
+  if (!devLevel) room.popIn(ids);
+  sfx.pr();
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => ($("roomBanner").hidden = true), 6000);
+}
+$("roomBanner").addEventListener("click", () => ($("roomBanner").hidden = true));
+
+// The box that opens from the XP bar: where you are, how XP is earned, and what the next level brings.
+async function openXpBox() {
+  if (!S) return;
+  const p = progress(xpTotal());
+  $("xpNow").textContent = `${S.me ? "Level" : "About level"} ${p.level}, ${p.total} XP` +
+    (p.next == null ? ". That’s the top level!" : `. ${p.next - p.total} XP to level ${p.level + 1}.`);
+  $("xpApprox").hidden = !!S.me;
+  $("xpRules").textContent = "";
+  [
+    "GitHub: 10 XP on a day with contributions, plus 2 for each one (up to 30 a day).",
+    "Runs: 15 XP each, plus 5 per mile. Walks: 2 per mile. Up to 50 a day together.",
+    "Streaks: plus 5 XP for each day in a row (up to 25 a day).",
+    "Rest days don’t earn XP, and they never cost you any.",
+    "XP counts from the day you made your profile."
+  ].forEach(t => { const li = document.createElement("li"); li.textContent = t; $("xpRules").appendChild(li); });
+  $("xpNextTitle").hidden = $("xpNext").hidden = p.next == null;
+  if (p.next != null) {
+    const ids = await room.piecesBetween(p.level, p.level + 1);
+    $("xpNext").textContent = `Level ${p.level + 1} at ${p.next} XP: ` +
+      (ids.length ? `${pieceNames(ids)} for your room` : "more furniture is coming") +
+      (p.level + 1 === 5 ? ", and the door opens (the next room is coming soon)." : ".");
+  }
+  if (!$("xpBox").open) $("xpBox").showModal();
+  $("xpClose").focus();
+}
+$("roomXp").addEventListener("click", () => { openXpBox(); sfx.select(); });
+$("xpClose").addEventListener("click", () => $("xpBox").close());
+$("xpBox").addEventListener("click", e => { if (e.target === $("xpBox")) $("xpBox").close(); });
 
 // ---------- the room screen (#room) ----------
 
@@ -357,6 +466,7 @@ function route() {
     document.title = `${$("hRoom").textContent} · Pixel daily log`;
     window.scrollTo(0, 0);
     $("hRoom").focus();
+    celebrate();
     // Opened while the page is still loading (a #room link): the browser resets focus when loading ends.
     if (document.readyState !== "complete") addEventListener("load", () => roomOpen && $("hRoom").focus(), { once: true });
   } else {
@@ -639,6 +749,7 @@ function renderRuns(x) {
     x.manual.splice(j, 1);
     if (!x.manual.length) delete S.runs[x.k];
     saveRuns(S.me.id, S.runs);
+    checkUnlocks();   // that day's XP goes down again
     refreshPace(); refreshStats(); refreshTiles(); select(sel, false);
   })));
   foldList(ul, x.k);

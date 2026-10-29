@@ -15,19 +15,22 @@
 // depth order, so it can walk behind the bed. Reduced motion: no wandering, but keys and clicks still work.
 //
 // Standing on a piece's interact tile shows a bubble: the closet opens the character picker (E or Enter),
-// the door says it's locked.
+// the door says it's locked until level 5.
+//
+// The room's level comes from your XP (see xp.js and main.js). Pieces show when their unlockLevel is at or
+// below it, and after a level up the new ones drop in with a little bounce.
 
 import { drawPennant, cleanSchool } from "./art.js";
 import { FRAME_MS, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
 import { createFloor, toScreen, toWorld, tileOf, tileMiddle } from "./roomfloor.js";
+import { MAX_LEVEL } from "./xp.js";
 
 const DIR = "sprites/room/";
 const W = 256, H = 256;
 const BIG = W * 3;                    // a room area at least this wide (CSS pixels) gets 3x instead of 2x
 
-export const ROOM_LEVEL = 1;          // your room's level (later it grows with points)
-export const MAX_LEVEL = 5;
 const DOOR_LEVEL = 5;                 // the door opens to a next room at this level
+const POP_MS = 600;                   // how long new furniture takes to drop in after a level up
 
 // Your school pennant: our own art (art.js), so it's drawn in code instead of coming from the manifest.
 const PENNANT = { id: "pennant", layer: "wall", x: 31, y: 112, unlockLevel: 1 };
@@ -67,7 +70,8 @@ export function createRoom(canvas, els) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const touch = matchMedia("(pointer: coarse)");
   let manifest = null, imgs = null, masks = {}, sprites = null, wanted = null;
-  let school = DEFAULT_SCHOOL, canWalk = true, level = ROOM_LEVEL, items = [], floor = createFloor([]);
+  let school = DEFAULT_SCHOOL, canWalk = true, level = 1, items = [], floor = createFloor([]);
+  const pops = new Map();             // pieces dropping in right now: id -> when they started
   let onAction = () => {};
 
   // The character: where it stands, the path it's walking, which way it faces, and its animation.
@@ -111,7 +115,16 @@ export function createRoom(canvas, els) {
 
   function drawItem(it) {
     if (it === PENNANT) return drawPennant(onLeftWall(it.x, it.y), school, 0, 0, lettersOnLeftWall(it.x, it.y));
-    ctx.drawImage(imgs[it.sprite], it.x, it.y);
+    ctx.drawImage(imgs[it.sprite], it.x, it.y + popOffset(it.id));
+  }
+
+  // A new piece falls from 12 pixels up, then bounces once. Whole pixels, so it stays crisp.
+  function popOffset(id) {
+    if (!pops.has(id)) return 0;
+    const t = (performance.now() - pops.get(id)) / POP_MS;
+    if (t >= 1) { pops.delete(id); return 0; }
+    if (t < 0.6) return -Math.round(12 * (1 - t / 0.6) ** 2);
+    return -Math.round(3 * Math.sin((t - 0.6) / 0.4 * Math.PI));
   }
 
   // Paint the room the way the README says: shell, wall pieces, floor pieces, then the objects and the
@@ -246,7 +259,7 @@ export function createRoom(canvas, els) {
 
   function bubbleFor(it) {
     if (it.interact.action === "closet") return { text: "Press E", button: "Open" };
-    return { text: level >= DOOR_LEVEL ? "The next room is coming soon" : `Locked, reach level ${DOOR_LEVEL}` };
+    return { text: level >= DOOR_LEVEL ? "Coming soon" : `Locked, reach level ${DOOR_LEVEL}` };
   }
 
   // Show, hide or move the bubble. It sits above the piece, in the canvas's CSS pixels.
@@ -286,6 +299,7 @@ export function createRoom(canvas, els) {
     if (!canvas.clientWidth) { held.clear(); return; }   // the room screen is closed
     update(now, dt);
     follow(dt);
+    if (pops.size) dirty = true;   // furniture dropping in
     if (dirty) { draw(); dirty = false; }
     present();
     updateBubble();
@@ -403,9 +417,24 @@ export function createRoom(canvas, els) {
 
   // Show the room at another level (1 to MAX_LEVEL): pieces appear or go, and the floor changes with them.
   function setLevel(n) {
-    level = Math.max(1, Math.min(MAX_LEVEL, Math.round(n) || 1));
+    const want = Math.max(1, Math.min(MAX_LEVEL, Math.round(n) || 1));
+    if (want === level && items.length) return;   // nothing changes
+    level = want;
     if (manifest) furnish();
   }
+
+  // Drop these pieces in (after a level up). Reduced motion: they're simply there.
+  function popIn(ids) {
+    if (reduced) return;
+    const now = performance.now();
+    ids.forEach(id => pops.set(id, now));
+    dirty = true;
+  }
+
+  // The ids of the pieces that arrive at each level from `above`+1 up to `upTo` (for the banner and the info box).
+  const piecesBetween = (above, upTo) => ready.then(() =>
+    manifest.items.filter(i => i.unlockLevel > above && i.unlockLevel <= upTo)
+      .sort((a, b) => a.unlockLevel - b.unlockLevel).map(i => i.id)).catch(() => []);
 
   // Put the character at a piece's interact tile, standing still and facing you (after the closet).
   function standAt(id) {
@@ -420,5 +449,5 @@ export function createRoom(canvas, els) {
     dirty = true;
   }
 
-  return { setPlayer, setLevel, standAt, onAction: fn => (onAction = fn) };
+  return { setPlayer, setLevel, popIn, piecesBetween, standAt, onAction: fn => (onAction = fn) };
 }
