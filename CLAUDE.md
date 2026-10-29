@@ -42,7 +42,8 @@ privacy.html        what's saved and how to delete it
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
-js/room.js          the 256x256 isometric room, built from sprites/room/room_manifest.json (+ character + pennant), drawn at whole device pixels (2x, 3x on big screens) with a camera that follows the character when it doesn't fit. Its own screen at #room (routing in main.js). Arrow keys/WASD walk (up = up-right), a touch pad on phones, click to walk, wanders when idle. Items show by room level (ROOM_LEVEL, 1 for now); the closet (E/Enter) opens the picker with every character, the door says "Locked, reach level 5"
+js/room.js          the 256x256 isometric room, built from sprites/room/room_manifest.json (+ character + pennant), drawn at whole device pixels (2x, 3x on big screens) with a camera that follows the character when it doesn't fit. Its own screen at #room (routing in main.js). Arrow keys/WASD walk (up = up-right), a touch pad on phones, click to walk, wanders when idle. Items show by room level (from XP, see xp.js) and new ones drop in after a level up; the closet (E/Enter) opens the picker with every character, the door says "Locked, reach level 5" ("Coming soon" from level 5)
+js/xp.js            XP and room levels: dayXp rules, LEVELS thresholds, the per-day ledger (profile.xp) and merging. Pure math, no DOM
 js/roomfloor.js     the room's 10x10 tile floor in manifest world units (x along the right wall, y along the left, 10 units a tile), blocked tiles, sliding collision, pathing
 js/characters.js    the character roster: id, display name, sprite paths, unlock rule (id is saved, name can change)
 js/picker.js        character select: one big front-facing character, arrows, silhouettes for locked ones
@@ -63,7 +64,7 @@ Test locally (modules need a server, double-clicking index.html won't work):
 cd ~/Downloads/pixel-daily-log
 python3 -m http.server 8000   # open http://localhost:8000, Ctrl + C to stop
 ```
-Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3.
+Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, and ?dev&xp=500 fakes your XP total for the visit (nothing saved).
 
 ## Rules you must follow
 

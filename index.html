@@ -79,11 +79,22 @@
     <div class="room-head">
       <button class="btn px" id="roomBack" type="button">← Back</button>
       <h2 id="hRoom" tabindex="-1">My room</h2>
+      <!-- Your room level and XP; tap for how XP is earned (main.js fills it in) -->
+      <button class="room-xp px" id="roomXp" type="button" aria-haspopup="dialog" hidden>
+        <b id="xpLevel">Lv 1</b>
+        <span class="xp-bar" aria-hidden="true"><span class="xp-fill" id="xpFill"></span></span>
+        <span class="xp-text" id="xpText">0 / 50 XP</span>
+      </button>
       <label class="room-dev" id="roomDev" hidden>Dev level <select id="roomLevel"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
       <button class="btn px" id="pick" type="button">Pick character<span class="newtag" id="pickNew" hidden>New!</span></button>
     </div>
     <div class="room-frame">
       <canvas id="room" role="img" aria-label="Your pixel room: a bed, a closet, a desk with a computer, a chair, a window, a door and your school pennant, with your character in it. Walk with the arrow keys or W A S D, or click the floor. Stand at the closet and press E to change your character."></canvas>
+      <!-- "Level up!" when you open your room after reaching a new level -->
+      <div class="room-banner px" id="roomBanner" role="status" hidden>
+        <b class="room-banner-title">Level up! <span id="bannerLevel"></span></b>
+        <span id="bannerText"></span>
+      </div>
       <!-- Above the closet or the door when you stand at it (room.js moves it) -->
       <div class="room-bubble px" id="roomBubble" hidden>
         <span id="roomBubbleText" role="status"></span>
@@ -98,6 +109,20 @@
       </div>
     </div>
   </section>
+
+  <!-- How XP works and what the next level brings (the XP bar in the room header opens it) -->
+  <dialog class="picker" id="xpBox" aria-labelledby="xpTitle">
+    <div class="picker-box px xp-box">
+      <button class="x pick-close" id="xpClose" type="button" aria-label="Close">×</button>
+      <h2 id="xpTitle">Room level</h2>
+      <p class="xp-now" id="xpNow"></p>
+      <p class="small" id="xpApprox" hidden>This is an estimate from the last 4 weeks of public GitHub activity. Runs and older days stay private.</p>
+      <h3>How you earn XP</h3>
+      <ul class="xp-rules" id="xpRules"></ul>
+      <h3 id="xpNextTitle">Next level</h3>
+      <p id="xpNext"></p>
+    </div>
+  </dialog>
 
   <dialog class="picker" id="picker" aria-labelledby="pickName">
     <div class="picker-box px">
