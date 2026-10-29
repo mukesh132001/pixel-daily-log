@@ -79,10 +79,23 @@
     <div class="room-head">
       <button class="btn px" id="roomBack" type="button">← Back</button>
       <h2 id="hRoom" tabindex="-1">My room</h2>
+      <label class="room-dev" id="roomDev" hidden>Dev level <select id="roomLevel"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
       <button class="btn px" id="pick" type="button">Pick character<span class="newtag" id="pickNew" hidden>New!</span></button>
     </div>
     <div class="room-frame">
-      <canvas id="room" role="img" aria-label="Your pixel room: a bed, a desk with a laptop, a bookcase, a window and your school pennant, with your character wandering around. Click the floor to walk there."></canvas>
+      <canvas id="room" role="img" aria-label="Your pixel room: a bed, a closet, a desk with a computer, a chair, a window, a door and your school pennant, with your character in it. Walk with the arrow keys or W A S D, or click the floor. Stand at the closet and press E to change your character."></canvas>
+      <!-- Above the closet or the door when you stand at it (room.js moves it) -->
+      <div class="room-bubble px" id="roomBubble" hidden>
+        <span id="roomBubbleText" role="status"></span>
+        <button class="btn primary px" id="roomOpen" type="button" hidden>Open</button>
+      </div>
+      <!-- Touch screens only: hold an arrow to walk. Laid out the way each one moves on the floor. -->
+      <div class="room-pad" id="roomPad" aria-hidden="true">
+        <button class="btn px" type="button" data-key="ArrowLeft" tabindex="-1">&#8598;&#xFE0E;</button>
+        <button class="btn px" type="button" data-key="ArrowUp" tabindex="-1">&#8599;&#xFE0E;</button>
+        <button class="btn px" type="button" data-key="ArrowDown" tabindex="-1">&#8601;&#xFE0E;</button>
+        <button class="btn px" type="button" data-key="ArrowRight" tabindex="-1">&#8600;&#xFE0E;</button>
+      </div>
     </div>
   </section>
 

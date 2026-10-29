@@ -1,61 +1,62 @@
 // Your room: one cozy isometric room with your character in it and your school pennant on the wall.
 // It has its own screen (#room in the address, see main.js).
 //
-// The room and furniture are PNGs cut from the ToffeeCraft pack (see sprites/room/CREDITS.md). They're painted
-// 1:1 into a hidden 323x256 buffer, then copied onto the screen canvas at a whole number of device pixels per
+// The art is Pixmod's own, in sprites/room/. room_manifest.json says where every piece goes, which tiles it
+// blocks, what it does and at which room level it appears (see that folder's README). Everything is painted
+// 1:1 into a hidden 256x256 buffer, then copied onto the screen canvas at a whole number of device pixels per
 // room pixel (about 2x, or 3x on big screens), so pixels never get blurry or uneven.
 //
 // The camera: if the scaled room fits, it sits in the middle. If it doesn't (phones), it follows your
 // character smoothly, stopped at the room's edges so there's never empty space past them.
 //
-// Your character lives on the floor (see roomfloor.js). Standing still, it plays the front idle; walking,
-// the side-view walk row, flipped when heading left. Every few seconds it wanders somewhere new, and in
-// your own room you can click the floor to send it there. Furniture and character are drawn in depth
-// order, so it can walk behind the bed. Reduced motion: no wandering, but clicking still works.
+// Your character lives on the floor (see roomfloor.js). Arrow keys or WASD walk it (a touch pad on phones),
+// and clicking the floor sends it there. Standing still, it plays the front idle; walking, the side-view walk
+// row, flipped when heading left. Left alone for a while, it wanders. Furniture and character are drawn in
+// depth order, so it can walk behind the bed. Reduced motion: no wandering, but keys and clicks still work.
+//
+// Standing on a piece's interact tile shows a bubble: the closet opens the character picker (E or Enter),
+// the door says it's locked.
 
 import { drawPennant, cleanSchool } from "./art.js";
 import { FRAME_MS, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
-import { createFloor, toScreen, toFloor, inFront } from "./roomfloor.js";
+import { createFloor, toScreen, toWorld, tileOf, tileMiddle } from "./roomfloor.js";
 
-const W = 323, H = 256;
-const PENNANT_SCALE = 2;    // the felt pennant at 2x, so it reads at room size
-const WALL_SLOPE = 3 / 8;   // the walls rise 3 pixels for every 8 across
-
-// Furniture, painted in this order (later pieces cover earlier ones, so list back to front).
-// Every piece in the pack faces the right wall; flip mirrors it onto the left wall.
-// foot: where it stands on the floor, as [u0, u1, v0, v1] (see roomfloor.js); the character walks around it.
-// flat: lies on the floor and never covers the character. on: sits on another piece and moves with it.
-const PLACES = [
-  { img: "window",   x: 248, y: 48 },
-  { img: "bookcase", x: 176, y: 92,  foot: [14, 36, 0, 8] },
-  { img: "desk",     x: 50,  y: 120, foot: [0, 11, 45, 104], flip: true },
-  { img: "laptop",   x: 78,  y: 112, on: "desk" },
-  { img: "lamp",     x: 222, y: 114, foot: [67, 78, 9, 20] },
-  { img: "rug",      x: 104, y: 165, flat: true },
-  { img: "bed",      x: 240, y: 138, foot: [97, 129, 0, 26] },
-  { img: "chair",    x: 112, y: 150, foot: [40, 58, 78, 97] },
-  { img: "plant",    x: 22,  y: 146, foot: [8, 22, 136, 147] }
-];
-const PENNANT = { x: 58, y: 80 };     // on the left wall, above the desk
-const START = { u: 91, v: 95 };       // on the rug, where you first find your character
+const DIR = "sprites/room/";
+const W = 256, H = 256;
 const BIG = W * 3;                    // a room area at least this wide (CSS pixels) gets 3x instead of 2x
 
-const SPEED = 22;                     // walking speed, in floor units a second (calm)
+export const ROOM_LEVEL = 1;          // your room's level (later it grows with points)
+export const MAX_LEVEL = 5;
+const DOOR_LEVEL = 5;                 // the door opens to a next room at this level
+
+// Your school pennant: our own art (art.js), so it's drawn in code instead of coming from the manifest.
+const PENNANT = { id: "pennant", layer: "wall", x: 31, y: 112, unlockLevel: 1 };
+
+const SPEED = 24;                     // walking speed, in floor units a second (a tile is 10)
 const WANDER_MS = [3000, 7000];       // stand somewhere between these before wandering again
+const KEYS_REST_MS = 20000;           // after you walk it yourself, it waits this long before wandering
 const CAMERA_EASE = 5;                // how quickly the camera catches up (bigger is snappier)
 const FACE = { front: 16, right: 14, left: 18 };   // the middle of the feet, from the frame's left edge
+
+// Arrow keys and WASD walk along the floor: up = up-right on screen (toward the window wall),
+// right = down-right, down = down-left, left = up-left. Values are [dx, dy] in floor units.
+const KEYS = {
+  ArrowUp: [0, -1], w: [0, -1], ArrowRight: [1, 0], d: [1, 0],
+  ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0]
+};
 
 // Shown until you pick your own school.
 const DEFAULT_SCHOOL = { name: "Pixel State", initials: "PS", c1: "#7a5fa8", c2: "#ffc95c" };
 
-const loadImage = name => new Promise((ok, fail) => {
+const loadImage = file => new Promise((ok, fail) => {
   const img = new Image();
   img.onload = () => ok(img);
-  img.onerror = () => fail(new Error(`Couldn't load sprites/room/${name}.png`));
-  img.src = `sprites/room/${name}.png`;
+  img.onerror = () => fail(new Error(`Couldn't load ${DIR}${file}`));
+  img.src = DIR + file;
 });
 
-export function createRoom(canvas) {
+// els: { bubble, bubbleText, open, pad } (the speech bubble, its Open button, and the touch arrow pad)
+export function createRoom(canvas, els) {
   const buf = document.createElement("canvas");   // the room at 1:1
   buf.width = W;
   buf.height = H;
@@ -63,58 +64,75 @@ export function createRoom(canvas) {
   const view = canvas.getContext("2d");           // what you see: the size of the room area, in device pixels
   let k = 2;                                      // device pixels per room pixel
 
-  const names = ["room", ...new Set(PLACES.map(p => p.img))];
-  const ready = Promise.all(names.map(loadImage)).then(imgs => Object.fromEntries(names.map((n, i) => [n, imgs[i]])));
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const floor = createFloor(PLACES.filter(p => p.foot).map(p => p.foot));
-  let imgs = null, sprites = null, wanted = null, school = DEFAULT_SCHOOL, canWalk = true, solid = null;
+  const touch = matchMedia("(pointer: coarse)");
+  let manifest = null, imgs = null, masks = {}, sprites = null, wanted = null;
+  let school = DEFAULT_SCHOOL, canWalk = true, level = ROOM_LEVEL, items = [], floor = createFloor([]);
+  let onAction = () => {};
 
   // The character: where it stands, the path it's walking, which way it faces, and its animation.
-  const me = { at: floor.settle(START), path: [], facing: 1, frame: 0, frameAt: 0, restUntil: 0 };
+  const me = { at: { x: 55, y: 75 }, path: [], walking: false, facing: 1, frame: 0, frameAt: 0, restUntil: 0 };
+  const held = new Set();             // the arrow keys (and touch pad arrows) held down right now
+  let keysAt = -Infinity;             // when you last walked it yourself
   const cam = { x: 0, y: 0, set: false };
-  let offX = 0, offY = 0, dirty = true;
+  let offX = 0, offY = 0, dirty = true, near = null;
+
+  const ready = fetch(DIR + "room_manifest.json")
+    .then(r => { if (!r.ok) throw new Error(`Couldn't load ${DIR}room_manifest.json`); return r.json(); })
+    .then(m => {
+      manifest = m;
+      const files = [m.shell, ...new Set(m.items.map(i => i.sprite))];
+      return Promise.all(files.map(loadImage)).then(list => Object.fromEntries(files.map((f, i) => [f, list[i]])));
+    });
+
+  // ----- the pieces in the room -----
+
+  // Everything at or below the room's level, plus the pennant. Each piece has, from the manifest:
+  // id, sprite, layer (wall/floor/object), x, y (top-left in room pixels), unlockLevel,
+  // and maybe blockedTiles {x, y, w, d}, depthY (for depth sorting), interact {action, tile, locked}.
+  function furnish() {
+    items = [PENNANT, ...manifest.items].filter(i => i.unlockLevel <= level);
+    floor = createFloor(items.filter(i => i.blockedTiles).map(i => i.blockedTiles));
+    me.at = floor.settle(me.at);   // a new piece might stand where you are
+    me.path = [];
+    near = null;
+    dirty = true;
+  }
 
   const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
 
-  // The pennant is drawn flat at (0, 0). Blow it up to PENNANT_SCALE, move it to (x0, y0),
-  // then lean each 1-pixel column up the left wall's slope.
+  // The pennant is drawn flat at (0, 0). Move it to (x0, y0), then lean each 1-pixel column up the
+  // left wall's slope (the walls rise 1 pixel for every 2 across). The initials move up as one flat block,
+  // by the slope at the felt's middle, because shearing 3-pixel letters scrambles them.
   const onLeftWall = (x0, y0) => (x, y, w, h, c) => {
-    const k = PENNANT_SCALE;
-    for (let i = 0; i < w * k; i++) {
-      const col = x * k + i;
-      px(x0 + col, y0 + y * k - Math.floor(col * WALL_SLOPE), 1, h * k, c);
-    }
+    for (let i = 0; i < w; i++) px(x0 + x + i, y0 + y - Math.floor((x + i) / 2), 1, h, c);
   };
+  const lettersOnLeftWall = (x0, y0) => (x, y, w, h, c) => px(x0 + x, y0 + y - 5, w, h, c);
 
-  function sprite(target, img, x, y, flip) {
-    if (!flip) return target.drawImage(img, x, y);
-    target.save();
-    target.translate(x + img.width, y);
-    target.scale(-1, 1);
-    target.drawImage(img, 0, 0);
-    target.restore();
+  function drawItem(it) {
+    if (it === PENNANT) return drawPennant(onLeftWall(it.x, it.y), school, 0, 0, lettersOnLeftWall(it.x, it.y));
+    ctx.drawImage(imgs[it.sprite], it.x, it.y);
   }
 
-  // Does this piece cover the character right now? (The laptop goes wherever the desk goes.)
-  const byName = name => PLACES.find(p => p.img === name);
-  const covers = p => (p.foot ? inFront(p.foot, me.at) : p.on ? covers(byName(p.on)) : false);
-
-  // Paint the room: furniture behind the character, then the character, then furniture in front of it.
+  // Paint the room the way the README says: shell, wall pieces, floor pieces, then the objects and the
+  // character sorted by depthY (the character's is the screen y of its feet).
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(imgs.room, 0, 0);
-    drawPennant(onLeftWall(PENNANT.x, PENNANT.y), school, 0, 0);   // hangs perfectly still
-    const front = PLACES.filter(covers);
-    PLACES.forEach(p => { if (!front.includes(p)) sprite(ctx, imgs[p.img], p.x, p.y, p.flip); });
+    ctx.drawImage(imgs[manifest.shell], 0, 0);
+    items.filter(i => i.layer === "wall").forEach(drawItem);
+    items.filter(i => i.layer === "floor").forEach(drawItem);
+    const feet = toScreen(me.at.x, me.at.y).y;
+    const objects = items.filter(i => i.layer === "object").sort((a, b) => a.depthY - b.depthY);
+    objects.filter(i => i.depthY <= feet).forEach(drawItem);
     drawMe();
-    front.forEach(p => sprite(ctx, imgs[p.img], p.x, p.y, p.flip));
+    objects.filter(i => i.depthY > feet).forEach(drawItem);
   }
 
   // Whole pixels only: the feet land on a room pixel, whichever way it's facing.
   function drawMe() {
     if (!sprites) return;
-    const feet = toScreen(me.at.u, me.at.v), x = Math.round(feet.x), y = Math.round(feet.y);
-    if (me.path.length) {
+    const feet = toScreen(me.at.x, me.at.y), x = Math.round(feet.x), y = Math.round(feet.y);
+    if (me.walking) {
       const left = me.facing < 0;
       drawFrame(ctx, sprites.side, me.frame, ROWS.walk, x - (left ? FACE.left : FACE.right), y, left);
     } else {
@@ -141,37 +159,66 @@ export function createRoom(canvas) {
 
   // ----- moving -----
 
+  function startWalking(now) {
+    if (!me.walking) { me.walking = true; me.frame = 0; me.frameAt = now; }
+  }
+  function stopWalking(now) {
+    if (me.walking) { me.walking = false; me.frame = 0; me.frameAt = now; }
+  }
+
   function walkTo(target) {
     const path = floor.findPath(me.at, target);
     if (!path) return false;
-    if (!me.path.length) { me.frame = 0; me.frameAt = performance.now(); }
     me.path = path;
+    startWalking(performance.now());
     dirty = true;
     return true;
   }
 
   const rest = now => { me.restUntil = now + WANDER_MS[0] + Math.random() * (WANDER_MS[1] - WANDER_MS[0]); };
 
-  // One step of the world: walk along the path, turn the animation, wander after a rest.
+  // Which way the held keys point, as [dx, dy] (0, 0 when none are held).
+  function heldDirection() {
+    let dx = 0, dy = 0;
+    held.forEach(key => { dx += KEYS[key][0]; dy += KEYS[key][1]; });
+    return [Math.sign(dx), Math.sign(dy)];
+  }
+
+  // Which way that is on screen: + right, - left (straight up or down keeps the old facing).
+  const face = (dx, dy) => { const across = dx - dy; if (Math.abs(across) > 0.01) me.facing = across > 0 ? 1 : -1; };
+
+  // One step of the world: walk with the keys or along the path, turn the animation, wander after a rest.
   function update(now, dt) {
-    if (me.path.length) {
+    const [kx, ky] = canWalk ? heldDirection() : [0, 0];
+    if (kx || ky) {
+      keysAt = now;
+      me.path = [];
+      const n = Math.hypot(kx, ky), step = SPEED * dt;
+      const to = floor.move(me.at, kx / n * step, ky / n * step);
+      face(kx, ky);
+      if (to !== me.at) { me.at = to; startWalking(now); }
+      else stopWalking(now);   // walking into a wall: stand and face it
+      dirty = true;
+    } else if (me.path.length) {
       let step = SPEED * dt;
       while (step > 0 && me.path.length) {
-        const to = me.path[0], du = to.u - me.at.u, dv = to.v - me.at.v, d = Math.hypot(du, dv);
-        const across = du - dv;                    // which way that is on screen: + right, - left
-        if (Math.abs(across) > 0.01) me.facing = across > 0 ? 1 : -1;
+        const to = me.path[0], dx = to.x - me.at.x, dy = to.y - me.at.y, d = Math.hypot(dx, dy);
+        face(dx, dy);
         if (d <= step) { me.at = to; me.path.shift(); step -= d; }
-        else { me.at = { u: me.at.u + du / d * step, v: me.at.v + dv / d * step }; step = 0; }
+        else { me.at = { x: me.at.x + dx / d * step, y: me.at.y + dy / d * step }; step = 0; }
       }
-      if (!me.path.length) { me.frame = 0; me.frameAt = now; rest(now); }
+      if (!me.path.length) { stopWalking(now); rest(now); }
       dirty = true;
-    } else if (!reduced && now >= me.restUntil) {
-      const spot = floor.randomSpot(me.at);
-      if (!spot || !walkTo(spot)) rest(now);
+    } else {
+      if (me.walking) { stopWalking(now); rest(now); dirty = true; }
+      if (!reduced && now >= me.restUntil && now - keysAt >= KEYS_REST_MS) {
+        const spot = floor.randomSpot(me.at);
+        if (!spot || !walkTo(spot)) rest(now);
+      }
     }
 
-    const ms = me.path.length ? FRAME_MS.walk : FRAME_MS.idle;
-    if ((me.path.length || !reduced) && now - me.frameAt >= ms) {
+    const ms = me.walking ? FRAME_MS.walk : FRAME_MS.idle;
+    if ((me.walking || !reduced) && now - me.frameAt >= ms) {
       me.frame = (me.frame + 1) % 4;
       me.frameAt = now;
       dirty = true;
@@ -180,11 +227,55 @@ export function createRoom(canvas) {
 
   // The camera looks at the character's middle and catches up smoothly (instantly with reduced motion).
   function follow(dt) {
-    const feet = toScreen(me.at.u, me.at.v), tx = feet.x, ty = feet.y - 15;
+    const feet = toScreen(me.at.x, me.at.y), tx = feet.x, ty = feet.y - 15;
     if (!cam.set || reduced) { cam.x = tx; cam.y = ty; cam.set = true; return; }
     const a = 1 - Math.exp(-CAMERA_EASE * dt);
     cam.x += (tx - cam.x) * a;
     cam.y += (ty - cam.y) * a;
+  }
+
+  // ----- the bubble over the closet and the door -----
+
+  // The piece whose interact tile you're standing on (only the ones that do something yet).
+  function pieceHere() {
+    if (!canWalk) return null;
+    const [tx, ty] = tileOf(me.at);
+    return items.find(i => i.interact && (i.interact.action === "closet" || i.interact.action === "next_room") &&
+      i.interact.tile[0] === tx && i.interact.tile[1] === ty) || null;
+  }
+
+  function bubbleFor(it) {
+    if (it.interact.action === "closet") return { text: "Press E", button: "Open" };
+    return { text: level >= DOOR_LEVEL ? "The next room is coming soon" : `Locked, reach level ${DOOR_LEVEL}` };
+  }
+
+  // Show, hide or move the bubble. It sits above the piece, in the canvas's CSS pixels.
+  function updateBubble() {
+    const it = pieceHere();
+    if (it !== near) {
+      near = it;
+      els.bubble.hidden = !it;
+      if (it) {
+        const b = bubbleFor(it), tap = !!b.button && touch.matches;
+        els.bubbleText.textContent = tap ? "" : b.text;
+        els.bubbleText.hidden = tap;
+        els.open.textContent = b.button || "";
+        els.open.hidden = !tap;
+      }
+    }
+    if (!it) return;
+    const css = canvas.clientWidth / canvas.width;   // CSS pixels per device pixel
+    els.bubble.style.left = `${Math.round((offX + (it.x + it.w / 2) * k) * css)}px`;
+    els.bubble.style.top = `${Math.round((offY + it.y * k) * css)}px`;
+  }
+
+  // E, Enter or the Open button: use the piece you're standing at.
+  function use() {
+    const it = pieceHere();
+    if (!it || it.interact.action !== "closet") return false;
+    held.clear();   // a box opens over the room, so stop walking
+    onAction(it.interact.action);
+    return true;
   }
 
   let last = 0;
@@ -192,34 +283,78 @@ export function createRoom(canvas) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, (now - (last || now)) / 1000);
     last = now;
-    if (!canvas.clientWidth) return;   // the room screen is closed
+    if (!canvas.clientWidth) { held.clear(); return; }   // the room screen is closed
     update(now, dt);
     follow(dt);
     if (dirty) { draw(); dirty = false; }
     present();
+    updateBubble();
   }
 
   ready.then(loaded => {
     imgs = loaded;
-    solid = furnitureMask();
+    me.at = tileMiddle(manifest.spawnTile || [5, 7]);
+    furnish();
+    masks = alphaMasks();
     rest(performance.now());
     requestAnimationFrame(tick);
   }).catch(e => console.warn(e.message));
 
-  // ----- clicking the floor -----
+  // ----- keys, the touch pad and clicks -----
 
-  // Which room pixels are furniture (clicks there do nothing). The rug counts as floor.
-  function furnitureMask() {
+  // The room takes the keys only while it's on screen, yours, and no box is open over it.
+  const listening = () => !!(imgs && canWalk && canvas.clientWidth && !document.querySelector("dialog[open]"));
+  const keyName = e => (e.key.length === 1 ? e.key.toLowerCase() : e.key);
+
+  document.addEventListener("keydown", e => {
+    if (!listening() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    const key = keyName(e);
+    if (KEYS[key]) { e.preventDefault(); held.add(key); return; }
+    // Enter on a button presses that button; E works anywhere.
+    if ((key === "e" || (key === "Enter" && !(e.target.closest && e.target.closest("button, a")))) && use()) e.preventDefault();
+  });
+  document.addEventListener("keyup", e => held.delete(keyName(e)));
+  window.addEventListener("blur", () => held.clear());
+
+  // The touch pad: hold an arrow to walk. Each button's data-key is the arrow key it stands for.
+  els.pad.querySelectorAll("button").forEach(b => {
+    const key = b.dataset.key, up = () => held.delete(key);
+    b.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      held.add(key);
+      try { b.setPointerCapture(e.pointerId); } catch (err) { /* keeps walking until pointerup anyway */ }
+    });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(t => b.addEventListener(t, up));
+    b.addEventListener("contextmenu", e => e.preventDefault());   // a long press shouldn't open a menu
+  });
+  els.open.addEventListener("click", use);
+
+  // Each piece's see-through pixels, so a click can tell the closet from the floor behind it.
+  function alphaMasks() {
+    const out = {};
     try {
-      const c = document.createElement("canvas");
-      c.width = W;
-      c.height = H;
-      const x = c.getContext("2d");
-      PLACES.filter(p => !p.flat).forEach(p => sprite(x, imgs[p.img], p.x, p.y, p.flip));
-      return x.getImageData(0, 0, W, H).data;
-    } catch (e) {
-      return null;
-    }
+      Object.entries(imgs).forEach(([file, img]) => {
+        const c = document.createElement("canvas");
+        c.width = img.width;
+        c.height = img.height;
+        const x = c.getContext("2d");
+        x.drawImage(img, 0, 0);
+        out[file] = x.getImageData(0, 0, img.width, img.height).data;
+      });
+    } catch (e) { /* can't read pixels (opened as a file): clicks just go to the floor */ }
+    return out;
+  }
+
+  // The front-most piece at room pixel (x, y), not counting the rug and the room itself.
+  function pieceAt(x, y) {
+    const hit = it => {
+      const m = masks[it.sprite], img = imgs[it.sprite];
+      if (!m || it === PENNANT || x < it.x || y < it.y || x >= it.x + img.width || y >= it.y + img.height) return false;
+      return m[((y - it.y) * img.width + (x - it.x)) * 4 + 3] > 0;
+    };
+    const objects = items.filter(i => i.layer === "object").sort((a, b) => b.depthY - a.depthY);
+    return objects.find(hit) || items.filter(i => i.layer === "wall").reverse().find(hit) || null;
   }
 
   canvas.addEventListener("click", e => {
@@ -228,10 +363,11 @@ export function createRoom(canvas) {
     const x = Math.floor(((e.clientX - r.left) * canvas.width / r.width - offX) / k);
     const y = Math.floor(((e.clientY - r.top) * canvas.height / r.height - offY) / k);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
-    if (solid && solid[(y * W + x) * 4 + 3] > 0) return;          // a piece of furniture
-    const p = toFloor(x + 0.5, y + 0.5);
-    if (!floor.inside(p.u, p.v)) return;                           // a wall
-    if (walkTo(floor.settle(p))) rest(performance.now() + 2000);  // stay put a little longer after a click
+    keysAt = performance.now() - KEYS_REST_MS + 2000;   // stay put a little longer after a click
+    const it = pieceAt(x, y);
+    if (it) { if (it.interact) walkTo(tileMiddle(it.interact.tile)); return; }   // the closet: go stand at it
+    const p = toWorld(x + 0.5, y + 0.5);
+    if (floor.inside(p.x, p.y)) walkTo(floor.settle(p));
   });
 
   // CSS stretches the canvas over the whole room area. Match its pixels to the screen's real pixels,
@@ -251,11 +387,13 @@ export function createRoom(canvas) {
   catch (e) { watch.observe(canvas); }
 
   // Dress the room: a roster character (see characters.js) and your school (null for the default).
-  // visitor: it's someone else's room (a peek), so the character wanders but clicks don't move it.
+  // visitor: it's someone else's room (a peek), so the character wanders but you can't steer it.
   function setPlayer(character, sch, visitor = false) {
     school = cleanSchool(sch) || DEFAULT_SCHOOL;
     canWalk = !visitor;
     canvas.style.cursor = canWalk ? "pointer" : "";
+    els.pad.hidden = !canWalk;
+    held.clear();
     dirty = true;
     const want = wanted = character;
     Promise.all([loadSprite(character.front), loadSprite(character.side)])
@@ -263,5 +401,24 @@ export function createRoom(canvas) {
       .catch(e => console.warn(e.message));
   }
 
-  return { setPlayer };
+  // Show the room at another level (1 to MAX_LEVEL): pieces appear or go, and the floor changes with them.
+  function setLevel(n) {
+    level = Math.max(1, Math.min(MAX_LEVEL, Math.round(n) || 1));
+    if (manifest) furnish();
+  }
+
+  // Put the character at a piece's interact tile, standing still and facing you (after the closet).
+  function standAt(id) {
+    const it = items.find(i => i.id === id && i.interact);
+    if (!it) return;
+    const now = performance.now();
+    me.at = floor.settle(tileMiddle(it.interact.tile));
+    me.path = [];
+    stopWalking(now);
+    keysAt = now;   // stay there a while to show off the new look
+    cam.set = false;
+    dirty = true;
+  }
+
+  return { setPlayer, setLevel, standAt, onAction: fn => (onAction = fn) };
 }

@@ -189,6 +189,19 @@ button,input{font:inherit;color:inherit}
   background:radial-gradient(ellipse 60% 55% at 50% 58%,var(--room-glow),transparent 70%),linear-gradient(var(--room-top),var(--room-bottom))}
 /* the canvas covers the room area; room.js matches its pixels to the screen and moves the camera */
 #room{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+/* the bubble over the closet or the door; room.js sets left/top to the top middle of the piece */
+.room-bubble{position:absolute;transform:translate(-50%,calc(-100% - 14px));display:flex;align-items:center;gap:8px;
+  padding:4px 10px;font-size:1.2rem;white-space:nowrap;pointer-events:none}
+.room-bubble[hidden]{display:none}
+.room-bubble::after{content:"";position:absolute;left:50%;bottom:-14px;margin-left:-6px;border:6px solid transparent;border-top-color:var(--line)}
+.room-bubble .btn{pointer-events:auto;min-height:40px;padding:4px 16px}
+/* the touch arrow pad: only on touch screens, each arrow points the way it walks */
+.room-pad{display:none;position:absolute;left:max(14px,env(safe-area-inset-left,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));
+  grid-template-columns:repeat(2,56px);grid-template-rows:repeat(2,56px);gap:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+@media (pointer:coarse){ .room-pad:not([hidden]){display:grid} }
+.room-pad .btn{min-height:0;padding:0;font-size:1.7rem;line-height:1}
+.room-dev{display:flex;align-items:center;gap:6px;font-size:1.1rem;flex:none}
+.room-dev select{font:inherit;padding:2px 4px}
 
 /* ---------- character select ---------- */
 .picker{border:0;padding:0;background:none;color:var(--ink);max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);overflow:visible}

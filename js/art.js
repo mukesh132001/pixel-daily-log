@@ -155,7 +155,8 @@ export const PENNANT_SIZE = { w: PEN_W, h: PEN_H };
 // Our own felt pennant (never a real school logo): a triangle pinned to the wall, pointing right.
 // c1 is the felt, c2 trims the edge and tip, and the letters pick whichever of light/dark reads better.
 // It hangs perfectly still. (x, y) is its top-left corner.
-export function drawPennant(px, school, x, y) {
+// textPx paints the initials (default: px). The room leans the felt up its wall but keeps the tiny letters whole.
+export function drawPennant(px, school, x, y, textPx = px) {
   const sc = cleanSchool(school);
   if (!sc) return;
   const n = parseInt(sc.c1.slice(1), 16);
@@ -171,5 +172,5 @@ export function drawPennant(px, school, x, y) {
   px(x, y - 1, 1, 1, "#3d2e3f"); px(x, y + PEN_H, 1, 1, "#3d2e3f");   // the two pins
 
   const w = textWidth(sc.initials);
-  drawText(px, sc.initials, x + 4 + Math.max(0, Math.floor((13 - w) / 2)), y + 5, ink);
+  drawText(textPx, sc.initials, x + 4 + Math.max(0, Math.floor((13 - w) / 2)), y + 5, ink);
 }
