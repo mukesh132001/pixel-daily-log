@@ -196,6 +196,19 @@ button,input{font:inherit;color:inherit}
 .picker-box{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px 22px 22px;width:min(520px,calc(100vw - 48px))}
 .picker-box h2{font-size:clamp(1.6rem,5vw,2.2rem)}
 .pick-close{position:absolute;top:6px;right:6px;font-size:1.6rem}
+
+/* ---------- sign in and questions (same pixel box as the picker) ---------- */
+.login-box p{margin:8px 0}
+.login-form{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:340px;margin-top:6px}
+.login-label{text-align:left;font-size:1.05rem;color:var(--ink-soft)}
+.login-form input{border:0;padding:8px 12px;min-height:44px;background:var(--tile);margin:3px;
+  box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line)}
+.login-big{font-family:"Pixelify Sans","VT323",monospace;font-size:1.5rem}
+.login-delete{display:block;margin:14px auto 0;font-size:1.05rem}
+.login-msg{min-height:1.2em}
+.login-msg.bad{color:var(--bad)}
+.ask-text{margin:12px 0 16px;max-width:36ch}
+.ask-buttons{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
 .pick-stage{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;margin:14px 0 10px}
 /* picker.js sets the width to a whole-number multiple of 32px so pixels stay even */
 #pickArt{display:block;height:auto;background:var(--tile);image-rendering:pixelated;image-rendering:crisp-edges}
