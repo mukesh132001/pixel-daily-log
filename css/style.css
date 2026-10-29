@@ -208,10 +208,10 @@ button,input{font:inherit;color:inherit}
 .xp-bar{display:block;width:72px;height:12px;background:var(--empty);box-shadow:0 0 0 2px var(--line);position:relative}
 .xp-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--code)}
 .xp-text{white-space:nowrap;color:var(--ink-soft)}
-.xp-box{text-align:left;align-items:stretch}
 .xp-box h3{margin:14px 0 4px}
 .xp-now{font-size:1.3rem}
-.xp-rules{margin:0;padding-left:1.2em}
+/* titles stay centered like the other boxes; the list reads better lined up on the left */
+.xp-box .xp-rules{align-self:stretch;text-align:left;margin:0;padding-left:1.2em}
 .xp-rules li{margin:3px 0}
 /* "Level up!" across the top of the room */
 .room-banner{position:absolute;left:50%;top:18px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;
