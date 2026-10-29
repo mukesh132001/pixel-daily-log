@@ -19,6 +19,9 @@
 //
 // The room's level comes from your XP (see xp.js and main.js). Pieces show when their unlockLevel is at or
 // below it, and after a level up the new ones drop in with a little bounce.
+//
+// Seasonal events (sprites/events/<id>/, listed in EVENTS) decorate the room while today is inside their
+// `active` dates: their pieces follow the same rules, show at every level, and can replace a base piece.
 
 import { drawPennant, cleanSchool } from "./art.js";
 import { FRAME_MS, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
@@ -26,6 +29,8 @@ import { createFloor, toScreen, toWorld, tileOf, tileMiddle } from "./roomfloor.
 import { MAX_LEVEL } from "./xp.js";
 
 const DIR = "sprites/room/";
+const EVENT_DIR = "sprites/events/";
+const EVENTS = ["halloween"];         // each has sprites/events/<id>/<id>_manifest.json
 const W = 256, H = 256;
 const BIG = W * 3;                    // a room area at least this wide (CSS pixels) gets 3x instead of 2x
 
@@ -51,12 +56,28 @@ const KEYS = {
 // Shown until you pick your own school.
 const DEFAULT_SCHOOL = { name: "Pixel State", initials: "PS", c1: "#7a5fa8", c2: "#ffc95c" };
 
-const loadImage = file => new Promise((ok, fail) => {
+const loadImage = src => new Promise((ok, fail) => {
   const img = new Image();
   img.onload = () => ok(img);
-  img.onerror = () => fail(new Error(`Couldn't load ${DIR}${file}`));
-  img.src = DIR + file;
+  img.onerror = () => fail(new Error(`Couldn't load ${src}`));
+  img.src = src;
 });
+const loadJson = path => fetch(path).then(r => { if (!r.ok) throw new Error(`Couldn't load ${path}`); return r.json(); });
+
+// Is a seasonal event on today? active: { from: "10-25", to: "11-01" } (month-day, inclusive, local time).
+// A range like "12-20" to "01-05" wraps past New Year.
+const monthDay = d => `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export function eventActive(active, date = new Date()) {
+  if (!active || !active.from || !active.to) return false;
+  const t = monthDay(date);
+  return active.from <= active.to ? t >= active.from && t <= active.to : t >= active.from || t <= active.to;
+}
+
+// Which year's season this is (a December-to-January event belongs to the year it started).
+export function seasonOf(active, date = new Date()) {
+  const y = date.getFullYear();
+  return active.from > active.to && monthDay(date) <= active.to ? y - 1 : y;
+}
 
 // els: { bubble, bubbleText, open, pad } (the speech bubble, its Open button, and the touch arrow pad)
 export function createRoom(canvas, els) {
@@ -70,6 +91,7 @@ export function createRoom(canvas, els) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const touch = matchMedia("(pointer: coarse)");
   let manifest = null, imgs = null, masks = {}, sprites = null, wanted = null;
+  let events = [], eventChoice = null;   // the seasonal events that loaded; eventChoice: null = by date, "none", or an id
   let school = DEFAULT_SCHOOL, canWalk = true, level = 1, items = [], floor = createFloor([]);
   const pops = new Map();             // pieces dropping in right now: id -> when they started
   let onAction = () => {};
@@ -81,21 +103,37 @@ export function createRoom(canvas, els) {
   const cam = { x: 0, y: 0, set: false };
   let offX = 0, offY = 0, dirty = true, near = null;
 
-  const ready = fetch(DIR + "room_manifest.json")
-    .then(r => { if (!r.ok) throw new Error(`Couldn't load ${DIR}room_manifest.json`); return r.json(); })
-    .then(m => {
-      manifest = m;
-      const files = [m.shell, ...new Set(m.items.map(i => i.sprite))];
-      return Promise.all(files.map(loadImage)).then(list => Object.fromEntries(files.map((f, i) => [f, list[i]])));
+  // The room's manifest and art, then each seasonal event's. Every piece gets src, the path of its image.
+  // A seasonal event that doesn't load is just skipped; the room itself never waits on one.
+  const eventManifest = id => loadJson(`${EVENT_DIR}${id}/${id}_manifest.json`)
+    .then(m => ({ ...m, id, items: m.items.map(i => ({ ...i, src: `${EVENT_DIR}${id}/${i.sprite}` })) }));
+  const ready = Promise.all([loadJson(DIR + "room_manifest.json"), Promise.all(EVENTS.map(id => eventManifest(id).catch(e => console.warn(e.message))))])
+    .then(async ([m, seasonal]) => {
+      manifest = { ...m, items: m.items.map(i => ({ ...i, src: DIR + i.sprite })) };
+      const files = [DIR + m.shell, ...new Set(manifest.items.map(i => i.src))];
+      const loaded = Object.fromEntries(await Promise.all(files.map(async f => [f, await loadImage(f)])));
+      for (const e of seasonal.filter(Boolean)) {
+        try {
+          for (const f of new Set(e.items.map(i => i.src))) loaded[f] = await loadImage(f);
+          events.push(e);
+        } catch (err) { console.warn(err.message); }
+      }
+      return loaded;
     });
+
+  // The events decorating the room right now.
+  const eventsOn = () => events.filter(e => (eventChoice == null ? eventActive(e.active) : eventChoice === e.id));
 
   // ----- the pieces in the room -----
 
-  // Everything at or below the room's level, plus the pennant. Each piece has, from the manifest:
-  // id, sprite, layer (wall/floor/object), x, y (top-left in room pixels), unlockLevel,
-  // and maybe blockedTiles {x, y, w, d}, depthY (for depth sorting), interact {action, tile, locked}.
+  // Everything at or below the room's level, plus the pennant and any seasonal pieces. Each piece has, from the
+  // manifest: id, sprite, layer (wall/floor/object), x, y (top-left in room pixels), unlockLevel,
+  // and maybe blockedTiles {x, y, w, d}, depthY (for depth sorting), interact {action, tile, locked},
+  // replaces (a seasonal piece that hides a base piece while it's up).
   function furnish() {
-    items = [PENNANT, ...manifest.items].filter(i => i.unlockLevel <= level);
+    const seasonal = eventsOn().flatMap(e => e.items);
+    const replaced = new Set(seasonal.map(i => i.replaces).filter(Boolean));
+    items = [PENNANT, ...manifest.items.filter(i => i.unlockLevel <= level && !replaced.has(i.id)), ...seasonal];
     floor = createFloor(items.filter(i => i.blockedTiles).map(i => i.blockedTiles));
     me.at = floor.settle(me.at);   // a new piece might stand where you are
     me.path = [];
@@ -115,7 +153,7 @@ export function createRoom(canvas, els) {
 
   function drawItem(it) {
     if (it === PENNANT) return drawPennant(onLeftWall(it.x, it.y), school, 0, 0, lettersOnLeftWall(it.x, it.y));
-    ctx.drawImage(imgs[it.sprite], it.x, it.y + popOffset(it.id));
+    ctx.drawImage(imgs[it.src], it.x, it.y + popOffset(it.id));
   }
 
   // A new piece falls from 12 pixels up, then bounces once. Whole pixels, so it stays crisp.
@@ -131,7 +169,7 @@ export function createRoom(canvas, els) {
   // character sorted by depthY (the character's is the screen y of its feet).
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(imgs[manifest.shell], 0, 0);
+    ctx.drawImage(imgs[DIR + manifest.shell], 0, 0);
     items.filter(i => i.layer === "wall").forEach(drawItem);
     items.filter(i => i.layer === "floor").forEach(drawItem);
     const feet = toScreen(me.at.x, me.at.y).y;
@@ -363,7 +401,7 @@ export function createRoom(canvas, els) {
   // The front-most piece at room pixel (x, y), not counting the rug and the room itself.
   function pieceAt(x, y) {
     const hit = it => {
-      const m = masks[it.sprite], img = imgs[it.sprite];
+      const m = masks[it.src], img = imgs[it.src];
       if (!m || it === PENNANT || x < it.x || y < it.y || x >= it.x + img.width || y >= it.y + img.height) return false;
       return m[((y - it.y) * img.width + (x - it.x)) * 4 + 3] > 0;
     };
@@ -449,5 +487,15 @@ export function createRoom(canvas, els) {
     dirty = true;
   }
 
-  return { setPlayer, setLevel, popIn, piecesBetween, standAt, onAction: fn => (onAction = fn) };
+  // Dev only: "none" hides every seasonal event, an id shows that one whatever the date, null goes by date.
+  function setEvent(choice) {
+    eventChoice = choice || null;
+    if (manifest) furnish();
+  }
+
+  // The seasonal events on right now, for the banner: [{ id, name, banner, season (the year) }].
+  const currentEvents = () => ready.then(() =>
+    eventsOn().map(e => ({ id: e.id, name: e.name, banner: e.banner, season: seasonOf(e.active) }))).catch(() => []);
+
+  return { setPlayer, setLevel, popIn, piecesBetween, setEvent, currentEvents, standAt, onAction: fn => (onAction = fn) };
 }
