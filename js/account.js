@@ -16,6 +16,9 @@ const SYNC = "pdl:sync";   // { user, at, dirty }: the account this browser's pr
 const SAVE_DELAY = 1500;   // wait for a quiet moment before uploading, so a burst of changes is one save
 
 let client = null, user = null, saveTimer = null;
+let sent = "";             // the profile the account has right now (as JSON), so unchanged saves aren't uploaded
+const same = p => JSON.stringify(cloudCopy(p)) === sent;
+const matched = p => { sent = JSON.stringify(cloudCopy(p)); };
 const listeners = [];
 
 export const isConfigured = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -83,6 +86,7 @@ export async function sendLink(email) {
 
 export async function signOut() {
   clearTimeout(saveTimer);
+  sent = "";
   store.set(SYNC, null);
   try { await (await connect()).auth.signOut(); } catch (e) {}
   user = null;
@@ -105,6 +109,7 @@ export async function upload(profile) {
       .upsert({ user_id: user.id, data: cloudCopy(profile), updated_at: new Date().toISOString() })
       .select("updated_at").single();
     if (error) throw error;
+    matched(profile);
     store.set(SYNC, { user: user.id, at: data.updated_at, dirty: false });
   } catch (e) {
     store.set(SYNC, { ...(store.get(SYNC, null) || {}), user: user.id, dirty: true });   // try again next time
@@ -123,7 +128,7 @@ export async function deleteSaved() {
 // Once this browser is linked to the account, every profile save uploads (after a quiet moment).
 const linked = () => { const s = store.get(SYNC, null); return !!(user && s && s.user === user.id); };
 onProfileSaved(p => {
-  if (!linked()) return;
+  if (!linked() || same(p)) return;
   store.set(SYNC, { ...store.get(SYNC, null), dirty: true });
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => upload(p), SAVE_DELAY);
@@ -151,7 +156,8 @@ export async function reconcile(local) {
   const accountNewer = !wasLinked || (!sync.dirty && (!sync.at || saved.at > sync.at));
   const merged = accountNewer ? mergeProgress(saved.profile, local) : mergeProgress(local, saved.profile);
   saveProfile(merged, { quiet: true });
-  if (JSON.stringify(cloudCopy(merged)) !== JSON.stringify(cloudCopy(saved.profile))) await upload(merged);
+  matched(saved.profile);
+  if (!same(merged)) await upload(merged);
   else store.set(SYNC, { user: user.id, at: saved.at, dirty: false });
   return { use: merged };
 }
@@ -159,6 +165,7 @@ export async function reconcile(local) {
 // Play as the account's profile in this browser. saved: { profile, at } from reconcile().
 export function keepSaved(saved) {
   saveProfile(saved.profile, { quiet: true });
+  matched(saved.profile);
   store.set(SYNC, { user: user.id, at: saved.at, dirty: false });
   return saved.profile;
 }
