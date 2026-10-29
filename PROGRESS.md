@@ -48,14 +48,22 @@ Last updated: Thursday, Oct 29, 2026. Update this file whenever a pull request i
   - signed in, your profile (name, school, character, unlocks, streak log, pet, GitHub username) saves to your account; Strava tokens and runs stay in the browser
   - first sign-in asks "Save this profile to your account?", or which profile to keep if the account already has a different one; the same profile on two devices is merged (unlocks and days add up)
   - privacy.html says what's stored and how to delete it ("Delete my saved profile" in the Account box; email/account deletion on request)
-- **`room-walk` (round 2)** is pushed, waiting for its pull request:
+- **Also merged:** `room-walk` round 2 (PR 17):
   - Pixmod's **own room art** replaces ToffeeCraft in `sprites/room/`: `room_shell.png`, 12 items, `room_manifest.json`, README. Desk with a monitor instead of the laptop
   - the room is built from the manifest: layers (wall, floor, object), objects and character sorted by `depthY`, `blockedTiles` on a 10x10 tile floor
   - **walk** with arrow keys / WASD (↑ = up-right along the floor), sliding along furniture; a touch arrow pad on phones; click still works; wandering waits 20 s after you use the keys
   - **closet:** stand in front of it → "Press E" (phones: "Open") → the picker with **every character** (no locks for now) → you step out in the new look. Saved as `characterId`, not marked unlocked
   - **door:** "Locked, reach level 5"
-  - **levels:** `ROOM_LEVEL = 1` in room.js shows items with `unlockLevel` 1; `?dev` adds a level picker (1–5)
+  - **levels:** items show by `unlockLevel`; `?dev` adds a level picker (1–5)
   - `art-packs/` is git-ignored too
+- **`room-levels`** is pushed, waiting for its pull request:
+  - **XP from real activity** (js/xp.js): GitHub 10 a day + 2 per contribution (max 30); runs 15 + 5/mi, walks 2/mi (max 50 together); streak +5 a day in a row (max +25); rest days 0; only days since the profile was made
+  - stored as a small ledger on the profile, `xp: { days: { date: xp }, older }` (days past 60 fold into `older`), recalculated for the 4 weeks every visit, never double counted; a failed GitHub/Strava load never lowers a day. Syncs to the account (`CLOUD_FIELDS`)
+  - **levels** at 0 / 50 / 150 / 300 / 500 / 800 / 1200 / 1700 / 2300 / 3000 XP; the room shows items with `unlockLevel` ≤ your level; the door says "Coming soon" from level 5
+  - room header: "Lv 2", a pixel XP bar and "146 / 150 XP" (phones: level and bar); tap it for how XP works and what's next
+  - **Level up!** banner naming the new pieces, which drop in (not with reduced motion); `levelSeen` on the profile so it shows once
+  - peeks: "~Lv 3" from their last 4 weeks of public GitHub, saved nowhere
+  - dev: `?dev&xp=500` fakes the total for a visit (saves nothing); the level picker still works
 
 
 ## 🧭 Decisions we made
