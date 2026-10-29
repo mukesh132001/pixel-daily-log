@@ -1,5 +1,5 @@
-// Your profile: who you are in the pixel world. Saved in this browser for now.
-// Runs and the Strava link belong to the profile's id, so GitHub is optional.
+// Your profile: who you are in the pixel world. Saved in this browser, and in your account if you sign in
+// (see account.js). Runs and the Strava link belong to the profile's id, so GitHub is optional.
 
 import { store, runsKey, LAST_USER } from "./storage.js";
 
@@ -40,7 +40,28 @@ export function loadProfile() {
   return isProfile(p) ? p : null;
 }
 
-export const saveProfile = p => store.set(KEY, p);
+// Every save tells the listeners (the account uploads changes). quiet: don't tell them
+// (used when the profile just came from the account, so there's nothing to upload).
+const listeners = [];
+export const onProfileSaved = fn => listeners.push(fn);
+export function saveProfile(p, { quiet = false } = {}) {
+  store.set(KEY, p);
+  if (!quiet) listeners.forEach(fn => fn(p));
+}
+
+// The only fields that go to your account. Strava tokens and hand-logged runs aren't on the profile,
+// and anything added to it later stays in this browser until it's listed here.
+const CLOUD_FIELDS = ["v", "id", "name", "about", "school", "characterId", "unlocked", "log", "pet", "github", "createdAt"];
+export const cloudCopy = p => Object.fromEntries(CLOUD_FIELDS.filter(k => k in p).map(k => [k, p[k]]));
+
+// Two copies of the same profile (this browser and your account): keep base's choices, and everything
+// either one earned. Unlocks and logged days only ever add up.
+export function mergeProgress(base, other) {
+  const merged = recordDays({ ...base, unlocked: { ...(other.unlocked || {}), ...(base.unlocked || {}) } },
+    (other.log && Array.isArray(other.log.days)) ? other.log.days : []);
+  merged.log.best = Math.max(merged.log.best, (other.log && other.log.best) || 0);
+  return merged;
+}
 
 // Is this GitHub username the one on your profile?
 export const isMine = (me, login) => !!(me && me.github && login && me.github.toLowerCase() === login.toLowerCase());
