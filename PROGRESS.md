@@ -1,6 +1,6 @@
 # PROGRESS.md: where Pixel daily log stands
 
-Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request is merged or a decision is made.
+Last updated: Thursday, Oct 29, 2026. Update this file whenever a pull request is merged or a decision is made.
 
 ## ✅ Live right now
 
@@ -43,12 +43,19 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
   - floor grid in `js/roomfloor.js`: u along the right wall, v along the left wall; furniture footprints are `foot: [u0, u1, v0, v1]` in `PLACES` (room.js), and the floor lamp is blocked too
   - walking uses the side walk row (flipped when heading left), standing the front idle; depth order lets it walk behind the bed; the camera follows smoothly on phones
   - reduced motion: no wandering, clicking still works
-- **`login`** is pushed, waiting for its pull request (sign-in stays hidden until the Supabase values are in js/config.js):
+- **Also merged:** `login` (PR 15) and `supabase-config` (PR 16): sign-in is live. `profiles` table created (Oct 29, 2026), anon gets "permission denied" as it should.
   - optional email sign-in with a magic link (Supabase); guests work exactly like before and never download Supabase
   - signed in, your profile (name, school, character, unlocks, streak log, pet, GitHub username) saves to your account; Strava tokens and runs stay in the browser
   - first sign-in asks "Save this profile to your account?", or which profile to keep if the account already has a different one; the same profile on two devices is merged (unlocks and days add up)
   - privacy.html says what's stored and how to delete it ("Delete my saved profile" in the Account box; email/account deletion on request)
-  - to do: paste supabase/profiles.sql into the SQL Editor, set the redirect URLs, fill in config.js
+- **`room-walk` (round 2)** is pushed, waiting for its pull request:
+  - Pixmod's **own room art** replaces ToffeeCraft in `sprites/room/`: `room_shell.png`, 12 items, `room_manifest.json`, README. Desk with a monitor instead of the laptop
+  - the room is built from the manifest: layers (wall, floor, object), objects and character sorted by `depthY`, `blockedTiles` on a 10x10 tile floor
+  - **walk** with arrow keys / WASD (↑ = up-right along the floor), sliding along furniture; a touch arrow pad on phones; click still works; wandering waits 20 s after you use the keys
+  - **closet:** stand in front of it → "Press E" (phones: "Open") → the picker with **every character** (no locks for now) → you step out in the new look. Saved as `characterId`, not marked unlocked
+  - **door:** "Locked, reach level 5"
+  - **levels:** `ROOM_LEVEL = 1` in room.js shows items with `unlockLevel` 1; `?dev` adds a level picker (1–5)
+  - `art-packs/` is git-ignored too
 
 
 ## 🧭 Decisions we made
