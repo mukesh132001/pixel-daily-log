@@ -1,0 +1,95 @@
+{
+  "event": "halloween",
+  "name": "Halloween",
+  "banner": "Happy Halloween! 🎃",
+  "active": {
+    "from": "10-25",
+    "to": "11-01",
+    "note": "month-day, inclusive, local time"
+  },
+  "note": "Same coordinate space and rules as sprites/room/room_manifest.json. Items with \"replaces\" hide that base item while the event is active. Event items show at every room level.",
+  "items": [
+    {
+      "id": "hw_cobweb_back",
+      "sprite": "hw_cobweb_back.png",
+      "layer": "wall",
+      "x": 116,
+      "y": 40,
+      "w": 25,
+      "h": 18
+    },
+    {
+      "id": "hw_cobweb_front",
+      "sprite": "hw_cobweb_front.png",
+      "layer": "wall",
+      "x": 29,
+      "y": 90,
+      "w": 12,
+      "h": 10
+    },
+    {
+      "id": "hw_bat_garland",
+      "sprite": "hw_bat_garland.png",
+      "layer": "wall",
+      "x": 132,
+      "y": 47,
+      "w": 95,
+      "h": 51
+    },
+    {
+      "id": "hw_spooky_lights",
+      "sprite": "hw_spooky_lights.png",
+      "layer": "wall",
+      "x": 30,
+      "y": 47,
+      "w": 97,
+      "h": 52,
+      "replaces": "string_lights"
+    },
+    {
+      "id": "hw_sill_pumpkin",
+      "sprite": "hw_sill_pumpkin.png",
+      "layer": "wall",
+      "x": 175,
+      "y": 103,
+      "w": 7,
+      "h": 7
+    },
+    {
+      "id": "hw_pumpkin_patch",
+      "sprite": "hw_pumpkin_patch.png",
+      "layer": "object",
+      "x": 146,
+      "y": 120,
+      "w": 29,
+      "h": 19,
+      "depthY": 139.5,
+      "blockedTiles": {
+        "x": 3,
+        "y": 0,
+        "w": 1,
+        "d": 1
+      }
+    },
+    {
+      "id": "hw_ghost_plush",
+      "sprite": "hw_ghost_plush.png",
+      "layer": "object",
+      "x": 66,
+      "y": 127,
+      "w": 8,
+      "h": 9,
+      "depthY": 164.2
+    },
+    {
+      "id": "hw_candy_bucket",
+      "sprite": "hw_candy_bucket.png",
+      "layer": "object",
+      "x": 124,
+      "y": 155,
+      "w": 21,
+      "h": 19,
+      "depthY": 173.0
+    }
+  ]
+}
