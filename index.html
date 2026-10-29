@@ -90,9 +90,9 @@
     </div>
     <div class="room-frame">
       <canvas id="room" role="img" aria-label="Your pixel room: a bed, a closet, a desk with a computer, a chair, a window, a door and your school pennant, with your character in it. Walk with the arrow keys or W A S D, or click the floor. Stand at the closet and press E to change your character."></canvas>
-      <!-- "Level up!" when you open your room after reaching a new level -->
+      <!-- "Level up!" after reaching a new level, or a seasonal hello like "Happy Halloween!" (main.js) -->
       <div class="room-banner px" id="roomBanner" role="status" hidden>
-        <b class="room-banner-title">Level up! <span id="bannerLevel"></span></b>
+        <b class="room-banner-title" id="bannerTitle"></b>
         <span id="bannerText"></span>
       </div>
       <!-- Above the closet or the door when you stand at it (room.js moves it) -->

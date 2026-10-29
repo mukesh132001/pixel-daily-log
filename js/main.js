@@ -31,6 +31,8 @@ const PARAMS = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && PARAMS.has("dev");
 const DEV_XP = DEV && PARAMS.has("xp") ? Math.max(0, Number(PARAMS.get("xp")) || 0) : null;
 let devLevel = DEV ? Math.max(0, Math.min(5, Number(PARAMS.get("level")) || 0)) || null : null;   // the dev picker's level
+// ?dev&event=halloween shows that event's decorations whatever the date; ?dev&event=none hides them all.
+const DEV_EVENT = DEV && PARAMS.has("event") ? PARAMS.get("event") || "none" : null;
 const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
 const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
 // Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
@@ -62,6 +64,7 @@ room.onAction(action => {
 
 // The dev level picker shows the room at any level 1-5, whatever your XP says.
 if (DEV) {
+  if (DEV_EVENT) room.setEvent(DEV_EVENT);
   if (devLevel) $("roomLevel").value = String(devLevel);
   $("roomLevel").addEventListener("change", () => {
     devLevel = Number($("roomLevel").value);
@@ -399,25 +402,55 @@ function refreshLevel() {
   if (DEV && !devLevel) $("roomLevel").value = String(Math.min(5, p.level));
 }
 
-// Opening your room after reaching a new level: a "Level up!" banner and the new furniture drops in.
-// levelSeen remembers it, so each level gets celebrated once (on any device, if you're signed in).
+// Banners across the top of the room, one at a time: each stays 6 seconds (or until you tap it).
+const BANNER_MS = 6000;
+const banners = [];
 let bannerTimer = null;
+function showBanner(title, text) {
+  banners.push({ title, text });
+  if ($("roomBanner").hidden) nextBanner();
+}
+function nextBanner() {
+  clearTimeout(bannerTimer);
+  const b = banners.shift();
+  $("roomBanner").hidden = !b;
+  if (!b) return;
+  $("bannerTitle").textContent = b.title;
+  $("bannerText").textContent = b.text || "";
+  $("bannerText").hidden = !b.text;
+  bannerTimer = setTimeout(nextBanner, BANNER_MS);
+}
+$("roomBanner").addEventListener("click", nextBanner);
+
+// Opening your room: celebrate a new level, then say hello for any seasonal event that's on.
 async function celebrate() {
   if (!S || !S.me) return;
+  await levelUp();
+  await seasonHello();
+}
+
+// A new level: a "Level up!" banner and the new furniture drops in.
+// levelSeen remembers it, so each level gets celebrated once (on any device, if you're signed in).
+async function levelUp() {
   const level = progress(xpTotal()).level, seen = S.me.levelSeen || 1;
   if (level <= seen) return;
   if (DEV_XP == null) { S.me = { ...S.me, levelSeen: level }; saveProfile(S.me); }
   const ids = await room.piecesBetween(seen, level);
-  $("bannerLevel").textContent = `Lv ${level}`;
-  $("bannerText").textContent = ids.length ? `New in your room: ${pieceNames(ids)}.`
-    : "More furniture is on the way.";
-  $("roomBanner").hidden = false;
+  showBanner(`Level up! Lv ${level}`, ids.length ? `New in your room: ${pieceNames(ids)}.` : "More furniture is on the way.");
   if (!devLevel) room.popIn(ids);
   sfx.pr();
-  clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => ($("roomBanner").hidden = true), 6000);
 }
-$("roomBanner").addEventListener("click", () => ($("roomBanner").hidden = true));
+
+// A seasonal event's banner (its manifest's "banner", e.g. "Happy Halloween! 🎃"), once a year per event.
+// eventsSeen remembers the year: { halloween: 2026 }. A dev preview (?dev&event=) saves nothing.
+async function seasonHello() {
+  for (const e of await room.currentEvents()) {
+    const seen = S.me.eventsSeen || {};
+    if (seen[e.id] === e.season) continue;
+    if (DEV_EVENT == null) { S.me = { ...S.me, eventsSeen: { ...seen, [e.id]: e.season } }; saveProfile(S.me); }
+    showBanner(e.banner || `Happy ${e.name}!`, "");
+  }
+}
 
 // The box that opens from the XP bar: where you are, how XP is earned, and what the next level brings.
 async function openXpBox() {
