@@ -10,5 +10,5 @@ export const WORKER_URL = "https://pixel-daily-log-strava.mukeshethiraj0.workers
 // Supabase, for optional sign-in (so a profile can be restored on any device). Both values are public:
 // the anon key only allows what the database's Row Level Security rules allow (see supabase/profiles.sql).
 // Never put the service_role (secret) key here. Leave these empty and sign-in stays hidden.
-export const SUPABASE_URL = "";
-export const SUPABASE_ANON_KEY = "";
+export const SUPABASE_URL = "https://uxihyiwfsospvfgxruuf.supabase.co";
+export const SUPABASE_ANON_KEY = "sb_publishable_NfQyi0Ks5aKR6OJvkeTabQ_yQAFzj3C";   // the publishable key
