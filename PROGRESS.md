@@ -38,11 +38,18 @@ Last updated: Saturday, Oct 24, 2026. Update this file whenever a pull request i
   - the worker has `GET /github/...` for exactly the 3 GitHub calls the site makes, adds `GITHUB_TOKEN` (5,000 requests an hour, shared), caches answers 10 minutes at the edge (`X-Proxy-Cache: HIT/MISS`)
   - js/github.js asks the worker first and falls back to api.github.com; the browser cache from PR 11 still wraps both
   - **deployed and checked (Oct 25, 2026):** first call `MISS`, second `HIT`, so the edge cache works on `workers.dev`; blocked paths, other sites and POST are refused, and the token never appears in replies
-- **`room-walk`** is pushed, waiting for its pull request:
+- **Also merged:** `room-walk` (PR 14):
   - the character walks around the room: wanders every 3–7 s, and on your own room you click the floor to send it there (not on visits)
   - floor grid in `js/roomfloor.js`: u along the right wall, v along the left wall; furniture footprints are `foot: [u0, u1, v0, v1]` in `PLACES` (room.js), and the floor lamp is blocked too
   - walking uses the side walk row (flipped when heading left), standing the front idle; depth order lets it walk behind the bed; the camera follows smoothly on phones
   - reduced motion: no wandering, clicking still works
+- **`login`** is pushed, waiting for its pull request (sign-in stays hidden until the Supabase values are in js/config.js):
+  - optional email sign-in with a magic link (Supabase); guests work exactly like before and never download Supabase
+  - signed in, your profile (name, school, character, unlocks, streak log, pet, GitHub username) saves to your account; Strava tokens and runs stay in the browser
+  - first sign-in asks "Save this profile to your account?", or which profile to keep if the account already has a different one; the same profile on two devices is merged (unlocks and days add up)
+  - privacy.html says what's stored and how to delete it ("Delete my saved profile" in the Account box; email/account deletion on request)
+  - to do: paste supabase/profiles.sql into the SQL Editor, set the redirect URLs, fill in config.js
+
 
 ## 🧭 Decisions we made
 

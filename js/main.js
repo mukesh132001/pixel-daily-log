@@ -13,10 +13,12 @@ import { createScene } from "./scene.js";
 import { createRoom } from "./room.js";
 import { ROSTER, DEFAULT_ID, byId, currentCharacter, isUnlocked, meetsRule } from "./characters.js";
 import { createPicker } from "./picker.js";
+import { setupLogin, settleAccount } from "./login.js";
 import { fillIcons, iconSpan } from "./icons.js";
 
 const $ = id => document.getElementById(id);
 fillIcons();
+setupLogin();   // the Sign in button (only when Supabase is set up in config.js)
 const canvas = $("scene");
 const scene = createScene(canvas);
 const room = createRoom($("room"));
@@ -824,7 +826,7 @@ $("sound").addEventListener("click", () => {
 canvas.addEventListener("click", () => scene.action());
 
 document.addEventListener("keydown", e => {
-  if ($("picker").open) return;   // the character picker uses the arrow keys itself
+  if (document.querySelector("dialog[open]")) return;   // the picker and the sign-in boxes use the keys themselves
   if (roomOpen) {                 // in the room, Escape goes back and the day keys rest
     if (e.key === "Escape") { e.preventDefault(); closeRoom(); }
     return;
@@ -841,8 +843,9 @@ document.addEventListener("keydown", e => {
   // Coming back from Strava's login page?
   const back = strava.isConfigured() ? await strava.handleRedirect() : null;
 
-  // Your profile, or one made from this browser's pre-profile data.
-  const me = loadProfile() || migrateOldPlayer();
+  // Your profile, or one made from this browser's pre-profile data. If you're signed in,
+  // it's lined up with your account first (that may ask you a question).
+  const me = await settleAccount(loadProfile() || migrateOldPlayer());
   if (me) strava.adopt(me);
 
   // A shared link opens that world as a peek, unless it's your own.

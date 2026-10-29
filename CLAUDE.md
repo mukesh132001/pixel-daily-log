@@ -34,7 +34,11 @@ No build step, no framework. Plain HTML, CSS and JavaScript ES modules. GitHub P
 index.html          page structure (title screen, HUD, scene, calendar, panels, phone tabs, room screen, picker)
 css/style.css       cozy retro theme: CSS variables, light (warm paper) and dark (plum night)
 js/main.js          app entry: loads a player, calendar, panels, controls
-js/config.js        PUBLIC settings only: STRAVA_CLIENT_ID and WORKER_URL
+js/config.js        PUBLIC settings only: STRAVA_CLIENT_ID, WORKER_URL, SUPABASE_URL and SUPABASE_ANON_KEY (empty = sign-in hidden)
+js/account.js       optional sign-in (Supabase magic link, implicit flow) and profile sync; loads supabase-js from the CDN only when needed
+js/login.js         the Sign in / Account button, the sign-in box, and the questions asked on first sign-in
+supabase/profiles.sql  the profiles table + Row Level Security; Muki pastes it into Supabase's SQL Editor (never run it from here)
+privacy.html        what's saved and how to delete it
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
@@ -63,7 +67,8 @@ Open http://localhost:8000/?dev to unlock every character for that visit (localh
 
 ## Rules you must follow
 
-- **Never put secrets in the repo.** The Strava Client Secret and `GITHUB_TOKEN` live only in Cloudflare (Worker > Settings > Variables and Secrets). Never print, log or commit them. `js/config.js` holds public values only.
+- **Never put secrets in the repo.** The Strava Client Secret and `GITHUB_TOKEN` live only in Cloudflare (Worker > Settings > Variables and Secrets). Never print, log or commit them. `js/config.js` holds public values only. Never ask for or use Supabase's service_role (secret) key; the site only uses the public anon key, and Row Level Security does the protecting.
+- Only the fields in `CLOUD_FIELDS` (js/profile.js) go to an account. Strava tokens and runs never do. If you add a profile field that should sync, add it there and to privacy.html.
 - The GitHub proxy only passes on the calls in `GITHUB_ROUTES` (worker). If js/github.js starts calling a new GitHub endpoint, add it there too, or it silently falls back to direct calls.
 - **Worker changes don't deploy with git.** After editing `worker/strava-worker.js`, tell Muki to paste the whole file into the Cloudflare editor and click Deploy (`cat worker/strava-worker.js | pbcopy` copies it).
 - The worker only accepts requests from `https://mukesh132001.github.io`, `http://localhost:8000` and Live Server's `http://localhost:5500` / `http://127.0.0.1:5500` (see `ALLOWED_ORIGINS`).
