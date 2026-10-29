@@ -56,7 +56,7 @@ Last updated: Thursday, Oct 29, 2026. Update this file whenever a pull request i
   - **door:** "Locked, reach level 5"
   - **levels:** items show by `unlockLevel`; `?dev` adds a level picker (1–5)
   - `art-packs/` is git-ignored too
-- **`room-levels`** is pushed, waiting for its pull request:
+- **Also merged:** `room-levels` (PR 18) and `xp-box-align` (PR 19, the XP rules list lines up on the left):
   - **XP from real activity** (js/xp.js): GitHub 10 a day + 2 per contribution (max 30); runs 15 + 5/mi, walks 2/mi (max 50 together); streak +5 a day in a row (max +25); rest days 0; only days since the profile was made
   - stored as a small ledger on the profile, `xp: { days: { date: xp }, older }` (days past 60 fold into `older`), recalculated for the 4 weeks every visit, never double counted; a failed GitHub/Strava load never lowers a day. Syncs to the account (`CLOUD_FIELDS`)
   - **levels** at 0 / 50 / 150 / 300 / 500 / 800 / 1200 / 1700 / 2300 / 3000 XP; the room shows items with `unlockLevel` ≤ your level; the door says "Coming soon" from level 5
@@ -64,6 +64,11 @@ Last updated: Thursday, Oct 29, 2026. Update this file whenever a pull request i
   - **Level up!** banner naming the new pieces, which drop in (not with reduced motion); `levelSeen` on the profile so it shows once
   - peeks: "~Lv 3" from their last 4 weeks of public GitHub, saved nowhere
   - dev: `?dev&xp=500` fakes the total for a visit (saves nothing); the level picker still works
+- **`halloween`** is pushed, waiting for its pull request (merge before Nov 1 ends to see it this year):
+  - Halloween decor in `sprites/events/halloween/` shows Oct 25 – Nov 1 (local time) at every level: cobwebs, bat garland, spooky lights (replace the string lights), pumpkins on the sill and by the desk (blocks tile 3,0), ghost plush on the bed, candy bucket on the rug
+  - a general events system: add `sprites/events/<id>/<id>_manifest.json` and the id to `EVENTS` in room.js; dates can wrap past New Year
+  - "Happy Halloween! 🎃" banner (text from the manifest's `banner`) once a year, remembered in `eventsSeen` (synced); banners queue after a level-up
+  - dev: `?dev&event=halloween` / `?dev&event=none`
 
 
 ## 🧭 Decisions we made
