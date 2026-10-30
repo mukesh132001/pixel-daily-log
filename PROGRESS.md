@@ -69,7 +69,7 @@ Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is 
   - a general events system: add `sprites/events/<id>/<id>_manifest.json` and the id to `EVENTS` in room.js; dates can wrap past New Year
   - "Happy Halloween! 🎃" banner (text from the manifest's `banner`) once a year, remembered in `eventsSeen` (synced); banners queue after a level-up
   - dev: `?dev&event=halloween` / `?dev&event=none`
-- **`room-today`** is pushed, waiting for its pull request: the room shows what you did today
+- **Also merged:** `room-today` (PR 21): the room shows what you did today
   - coded (1+ contribution or a push): the monitor glows with scrolling green code lines, brighter for contribution levels 1–4
   - ran: shoes by the foot of the bed and a water bottle on the desk; a run of 3.1+ mi (5 km) adds a medal on the left wall
   - coded and ran: a gold sparkle near the character every few seconds
@@ -77,6 +77,15 @@ Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is 
   - streak 3+: a candle with the number on the bookshelf (on the closet before level 3)
   - props are placeholders drawn in `js/roomtoday.js`; `sprites/today/today_manifest.json` says where each goes, so a PNG can replace any of them
   - reduced motion: props stay, nothing moves; peeks show the other person's day; dev: `?dev&today=coded|ran|both|none` (+ `&hour=22`, `&streak=7`)
+- **`pet-room`** is pushed, waiting for its pull request: a second room for your pets
+  - **art:** `tools/dogroom/export_room.py` exports the dog room into `sprites/petroom/` in the same format as `sprites/room/` (shell, one PNG per item, `petroom_manifest.json`); the pieces put back together match the original render pixel for pixel. New **cat bed** in the sunbeam; seven pet spots (3 rug slots, bowl, dog bed, kennel doorway, cat bed) marked dog / cat / any. The pet pack is in `sprites/pets/` (22 pets, 28x30 frames)
+  - **one engine, two rooms:** `js/room.js` switches worlds (layers, depth sorting, blocked tiles, Leo's walking and the camera are shared); the pet room loads the first time you go there
+  - **doors:** your room's door leads to `#pets` with a short pixel wipe (none with reduced motion), the little pet door leads back to `#room`; both swap in place, so Back goes to the main page. The big door is locked until a **7-day streak** (your best streak counts, so it never re-locks): "Locked, keep a 7-day streak (you're on 3)". A `#pets` link can't skip the lock; visitors can always look in
+  - **pets** (`js/pets.js`): no walk frames, so a pet hops between spots, wags and blinks, eats at the bowl, sleeps on beds (dogs: dog bed or kennel, cats: cat bed); click a pet for the happy heart; reduced motion keeps them still
+  - **adopting** (`js/adopt.js`, the Adopt button in the pet room): the first pet is free (any common dog or cat), the rest cost XP at the `pets.json` costs from a balance (total XP minus spent); your room's level always follows the XP you earned, so adopting never takes furniture away. You can own more than 4; each card has "In the room / Bring to the room" and the room holds 4. Saved on the profile as `pets` (synced, merged across devices; in privacy.html)
+  - **visitors** see the pet room read-only with no pets (pets are private profile data)
+  - dev: `?dev&pets=all` (every pet, door open) and `?dev&pets=none`, nothing saved
+  - **note: pets look a bit big next to Leo** (28x30 vs 32x40), so we may scale the pet art down later. Not changed yet.
 
 
 ## 🧭 Decisions we made

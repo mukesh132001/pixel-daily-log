@@ -42,7 +42,9 @@ privacy.html        what's saved and how to delete it
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
-js/room.js          the 256x256 isometric room, built from sprites/room/room_manifest.json (+ character + pennant), drawn at whole device pixels (2x, 3x on big screens) with a camera that follows the character when it doesn't fit. Its own screen at #room (routing in main.js). Arrow keys/WASD walk (up = up-right), a touch pad on phones, click to walk, wanders when idle. Items show by room level (from XP, see xp.js) and new ones drop in after a level up; the closet (E/Enter) opens the picker with every character, the door says "Locked, reach level 5" ("Coming soon" from level 5). Seasonal events (EVENTS) add decor while their dates are on, and today's activity shows (see roomtoday.js)
+js/room.js          the 256x256 isometric room, built from sprites/room/room_manifest.json (+ character + pennant), drawn at whole device pixels (2x, 3x on big screens) with a camera that follows the character when it doesn't fit. Its own screen at #room (routing in main.js). Arrow keys/WASD walk (up = up-right), a touch pad on phones, click to walk, wanders when idle. Items show by room level (from XP, see xp.js) and new ones drop in after a level up; the closet (E/Enter) opens the picker with every character, the big door leads to the pet room (#pets) once you've had a 7-day streak (otherwise it says how far you are). One engine, two rooms: enter() switches to the pet room (sprites/petroom/), which has real pets. Seasonal events (EVENTS) add decor while their dates are on, and today's activity shows (see roomtoday.js)
+js/pets.js          pets in the pet room: spots, small hops, tail wag/blink/eat/sleep frames, click-for-heart. Pure logic, no DOM
+js/adopt.js         adopting pets: the rules (first pet free and common, the rest cost XP from a balance, 4 in the room, merging) and the Adopt panel
 js/roomtoday.js     what you did TODAY in the room: todayState() (coded/ran/long run/streak/quiet/night), which props show, the monitor glow looks, and placeholder art (text grids) for props without a PNG
 js/xp.js            XP and room levels: dayXp rules, LEVELS thresholds, the per-day ledger (profile.xp) and merging. Pure math, no DOM
 js/roomfloor.js     the room's 10x10 tile floor in manifest world units (x along the right wall, y along the left, 10 units a tile), blocked tiles, sliding collision, pathing
@@ -53,6 +55,9 @@ js/art.js           the school pennant, plus the OLD layered character (only gal
 js/font.js          the A-Z pixel font
 sprites/room/       Pixmod's own room art (OK to commit): room_shell.png, one PNG per item, room_manifest.json (positions, layers, depthY, blockedTiles, interact, unlockLevel) and README.md (the rules room.js follows). Raw packs in assets/ and art-packs/ are git-ignored, never commit them
 sprites/events/<id>/  seasonal decor (OK to commit): <id>_manifest.json with active dates (month-day, local, can wrap past New Year), banner text, items (same rules as the room; `replaces` hides a base piece). Add the id to EVENTS in room.js
+sprites/petroom/    the pet room, exported from tools/dogroom in the same format as sprites/room/ (+ petSpots for pets). Regenerate with python export_room.py (needs Pillow), don't edit the PNGs by hand
+sprites/pets/       Pixmod's pet pack (OK to commit): 22 dogs and cats, sheets/<id>.png of 8 frames at 28x30 (sitA, sitB, blink, happy, eatA, eatB, sleepA, sleepB), pets.json (kind, rarity, cost)
+tools/              the Python art generators (dogroom, petpack), not part of the site
 sprites/today/      today_manifest.json: where the today props go (shoes, bottle, medal, candle, zzz), when they show, and the monitor screen's shape. "sprite": null = placeholder from roomtoday.js; drop in a PNG and name it there to swap
 js/runs.js          hand-logged runs and pace math
 js/icons.js         8x8 pixel SVG icons (shoe, laptop, flame, star, tape)
@@ -67,7 +72,7 @@ Test locally (modules need a server, double-clicking index.html won't work):
 cd ~/Downloads/pixel-daily-log
 python3 -m http.server 8000   # open http://localhost:8000, Ctrl + C to stop
 ```
-Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, ?dev&xp=500 fakes your XP total for the visit, ?dev&event=halloween (or none) forces an event on or off, and ?dev&today=coded|ran|both|none previews your day (&hour=22 for the zzz, &streak=7 for the candle). Nothing is saved.
+Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, ?dev&xp=500 fakes your XP total for the visit, ?dev&event=halloween (or none) forces an event on or off, and ?dev&today=coded|ran|both|none previews your day (&hour=22 for the zzz, &streak=7 for the candle), and ?dev&pets=all|none gives you every pet or none (and opens the pet room's door). Nothing is saved.
 
 ## Rules you must follow
 
