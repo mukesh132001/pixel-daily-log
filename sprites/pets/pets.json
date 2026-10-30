@@ -1,0 +1,198 @@
+{
+  "frameWidth": 28,
+  "frameHeight": 30,
+  "frames": [
+    "sitA",
+    "sitB",
+    "blink",
+    "happy",
+    "eatA",
+    "eatB",
+    "sleepA",
+    "sleepB"
+  ],
+  "rarityCost": {
+    "common": 50,
+    "rare": 150,
+    "epic": 300,
+    "legendary": 600
+  },
+  "pets": [
+    {
+      "id": "shiba",
+      "name": "Shiba",
+      "kind": "dog",
+      "rarity": "common",
+      "cost": 50,
+      "row": 0
+    },
+    {
+      "id": "corgi",
+      "name": "Corgi",
+      "kind": "dog",
+      "rarity": "common",
+      "cost": 50,
+      "row": 1
+    },
+    {
+      "id": "golden",
+      "name": "Golden Retriever",
+      "kind": "dog",
+      "rarity": "common",
+      "cost": 50,
+      "row": 2
+    },
+    {
+      "id": "blacklab",
+      "name": "Black Lab",
+      "kind": "dog",
+      "rarity": "common",
+      "cost": 50,
+      "row": 3
+    },
+    {
+      "id": "beagle",
+      "name": "Beagle",
+      "kind": "dog",
+      "rarity": "rare",
+      "cost": 150,
+      "row": 4
+    },
+    {
+      "id": "dalmatian",
+      "name": "Dalmatian",
+      "kind": "dog",
+      "rarity": "rare",
+      "cost": 150,
+      "row": 5
+    },
+    {
+      "id": "pug",
+      "name": "Pug",
+      "kind": "dog",
+      "rarity": "rare",
+      "cost": 150,
+      "row": 6
+    },
+    {
+      "id": "husky",
+      "name": "Husky",
+      "kind": "dog",
+      "rarity": "epic",
+      "cost": 300,
+      "row": 7
+    },
+    {
+      "id": "poodle",
+      "name": "Poodle",
+      "kind": "dog",
+      "rarity": "epic",
+      "cost": 300,
+      "row": 8
+    },
+    {
+      "id": "samoyed",
+      "name": "Samoyed",
+      "kind": "dog",
+      "rarity": "epic",
+      "cost": 300,
+      "row": 9
+    },
+    {
+      "id": "pixelpup",
+      "name": "Pixel Pup",
+      "kind": "dog",
+      "rarity": "legendary",
+      "cost": 600,
+      "row": 10
+    },
+    {
+      "id": "orange",
+      "name": "Orange Tabby",
+      "kind": "cat",
+      "rarity": "common",
+      "cost": 50,
+      "row": 11
+    },
+    {
+      "id": "blackcat",
+      "name": "Black Cat",
+      "kind": "cat",
+      "rarity": "common",
+      "cost": 50,
+      "row": 12
+    },
+    {
+      "id": "whitecat",
+      "name": "Snow",
+      "kind": "cat",
+      "rarity": "common",
+      "cost": 50,
+      "row": 13
+    },
+    {
+      "id": "greycat",
+      "name": "Russian Blue",
+      "kind": "cat",
+      "rarity": "common",
+      "cost": 50,
+      "row": 14
+    },
+    {
+      "id": "browntabby",
+      "name": "Brown Tabby",
+      "kind": "cat",
+      "rarity": "rare",
+      "cost": 150,
+      "row": 15
+    },
+    {
+      "id": "tuxedo",
+      "name": "Tuxedo",
+      "kind": "cat",
+      "rarity": "rare",
+      "cost": 150,
+      "row": 16
+    },
+    {
+      "id": "calico",
+      "name": "Calico",
+      "kind": "cat",
+      "rarity": "rare",
+      "cost": 150,
+      "row": 17
+    },
+    {
+      "id": "siamese",
+      "name": "Siamese",
+      "kind": "cat",
+      "rarity": "epic",
+      "cost": 300,
+      "row": 18
+    },
+    {
+      "id": "mainecoon",
+      "name": "Maine Coon",
+      "kind": "cat",
+      "rarity": "epic",
+      "cost": 300,
+      "row": 19
+    },
+    {
+      "id": "ragdoll",
+      "name": "Ragdoll",
+      "kind": "cat",
+      "rarity": "epic",
+      "cost": 300,
+      "row": 20
+    },
+    {
+      "id": "cosmic",
+      "name": "Cosmic Cat",
+      "kind": "cat",
+      "rarity": "legendary",
+      "cost": 600,
+      "row": 21
+    }
+  ]
+}
