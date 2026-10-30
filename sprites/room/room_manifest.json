@@ -16,6 +16,10 @@
     5,
     7
   ],
+  "arriveTile": [
+    8,
+    2
+  ],
   "layers": "draw shell, then wall items, then floor items, then objects and the character sorted by depthY (smaller first)",
   "items": [
     {
@@ -39,6 +43,7 @@
       "unlockLevel": 1,
       "interact": {
         "action": "next_room",
+        "to": "pets",
         "tile": [
           8,
           1

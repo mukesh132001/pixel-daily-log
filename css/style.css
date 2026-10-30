@@ -220,6 +220,17 @@ button,input{font:inherit;color:inherit}
 .room-banner-title{font-family:"Pixelify Sans",system-ui,sans-serif;font-size:1.6rem;color:var(--run);white-space:nowrap}
 @keyframes banner-in{from{transform:translate(-50%,-40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .room-dev{display:flex;align-items:center;gap:6px;font-size:1.1rem;flex:none}
+/* the wipe through a door: a plum curtain that sweeps across in 8 hard steps (main.js runs the animation) */
+.room-wipe{position:absolute;inset:0;z-index:5;background:var(--room-bottom);box-shadow:inset -6px 0 0 var(--line);cursor:wait}
+.room-wipe[hidden]{display:none}
+/* adopting pets */
+.adopt-box{width:min(720px,calc(100vw - 48px));max-height:calc(100dvh - 48px);overflow:auto}
+.adopt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px;width:100%}
+.adopt-card{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 8px;background:var(--tile)}
+.adopt-card.owned{outline:3px solid var(--code);outline-offset:-3px}
+.adopt-card canvas{width:84px;height:90px;image-rendering:pixelated;image-rendering:crisp-edges}   /* 3x the 28x30 art */
+.adopt-card .btn{margin-top:6px;min-height:40px;padding:4px 10px;font-size:1.1rem}
+.adopt-card .btn:disabled{cursor:not-allowed}
 .room-dev select{font:inherit;padding:2px 4px}
 
 /* ---------- character select ---------- */

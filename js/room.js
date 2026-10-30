@@ -14,8 +14,12 @@
 // row, flipped when heading left. Left alone for a while, it wanders. Furniture and character are drawn in
 // depth order, so it can walk behind the bed. Reduced motion: no wandering, but keys and clicks still work.
 //
-// Standing on a piece's interact tile shows a bubble: the closet opens the character picker (E or Enter),
-// the door says it's locked until level 5.
+// Standing on a piece's interact tile shows a bubble: the closet opens the character picker (E or Enter), and a
+// door takes you to the next room (or says why it's still locked).
+//
+// There are two rooms, one engine: your room (sprites/room/) and the pet room (sprites/petroom/, loaded the first time
+// you go there). Layers, depth sorting, blocked tiles, Leo's walking and the camera are shared; enter() switches.
+// The pet room has real pets (pets.js), which hop between spots and sort in depth with the furniture and Leo.
 //
 // The room's level comes from your XP (see xp.js and main.js). Pieces show when their unlockLevel is at or
 // below it, and after a level up the new ones drop in with a little bounce.
@@ -31,6 +35,7 @@ import { drawPennant, cleanSchool } from "./art.js";
 import { FRAME_MS, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
 import { createFloor, toScreen, toWorld, tileOf, tileMiddle } from "./roomfloor.js";
 import { MAX_LEVEL } from "./xp.js";
+import { createPetLife, PET_FRAME } from "./pets.js";
 import { drawText, textWidth } from "./font.js";
 import { todayState, propShows, SCREEN_LOOKS, placeholderFrames } from "./roomtoday.js";
 
@@ -38,6 +43,8 @@ const DIR = "sprites/room/";
 const EVENT_DIR = "sprites/events/";
 const EVENTS = ["halloween"];         // each has sprites/events/<id>/<id>_manifest.json
 const TODAY_DIR = "sprites/today/";
+const PETS_DIR = "sprites/petroom/";
+const SHEETS_DIR = "sprites/pets/sheets/";
 const SCROLL_MS = 260;                // the code lines on the monitor move up one row this often
 const FLICKER_MS = 320;               // candle flame frames
 const SPARK_MS = 600;                 // one sparkle, start to finish
@@ -47,7 +54,6 @@ const DIM = "rgba(40, 26, 52, 0.22)"; // and the room is a bit dimmer
 const W = 256, H = 256;
 const BIG = W * 3;                    // a room area at least this wide (CSS pixels) gets 3x instead of 2x
 
-const DOOR_LEVEL = 5;                 // the door opens to a next room at this level
 const POP_MS = 600;                   // how long new furniture takes to drop in after a level up
 
 // Your school pennant: our own art (art.js), so it's drawn in code instead of coming from the manifest.
@@ -104,6 +110,9 @@ export function createRoom(canvas, els) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const touch = matchMedia("(pointer: coarse)");
   let manifest = null, imgs = null, masks = {}, sprites = null, wanted = null;
+  let roomManifest = null, petManifest = null, world = "room";   // which room we're in; manifest is that room's
+  let petLife = null, wantPets = [], shownPets = "", petSheets = {}, petsLoading = null;
+  const doors = {};                   // per room: { locked, hint } for its door, set by main.js
   let events = [], eventChoice = null;   // the seasonal events that loaded; eventChoice: null = by date, "none", or an id
   let todayCfg = null, today = todayState({}, 0, 0);   // sprites/today/today_manifest.json, and what you did today
   today.quiet = false;                // until main.js says otherwise, don't dim
@@ -126,7 +135,7 @@ export function createRoom(canvas, els) {
   const todayManifest = loadJson(TODAY_DIR + "today_manifest.json").catch(e => console.warn(e.message));
   const ready = Promise.all([loadJson(DIR + "room_manifest.json"), Promise.all(EVENTS.map(id => eventManifest(id).catch(e => console.warn(e.message)))), todayManifest])
     .then(async ([m, seasonal, t]) => {
-      manifest = { ...m, items: m.items.map(i => ({ ...i, src: DIR + i.sprite })) };
+      manifest = roomManifest = { ...m, dir: DIR, items: m.items.map(i => ({ ...i, src: DIR + i.sprite })) };
       const files = [DIR + m.shell, ...new Set(manifest.items.map(i => i.src))];
       const loaded = Object.fromEntries(await Promise.all(files.map(async f => [f, await loadImage(f)])));
       for (const e of seasonal.filter(Boolean)) {
@@ -167,11 +176,15 @@ export function createRoom(canvas, els) {
   // and maybe blockedTiles {x, y, w, d}, depthY (for depth sorting), interact {action, tile, locked},
   // replaces (a seasonal piece that hides a base piece while it's up).
   function furnish() {
-    const seasonal = eventsOn().flatMap(e => e.items);
-    const replaced = new Set(seasonal.map(i => i.replaces).filter(Boolean));
-    items = [PENNANT, ...manifest.items.filter(i => i.unlockLevel <= level && !replaced.has(i.id)), ...seasonal];
-    const has = id => items.some(i => i.id === id);
-    if (todayCfg) items.push(...todayCfg.items.filter(i => propShows(i, today, has)));
+    if (world === "pets") {
+      items = manifest.items.slice();   // the pet room has everything from the start
+    } else {
+      const seasonal = eventsOn().flatMap(e => e.items);
+      const replaced = new Set(seasonal.map(i => i.replaces).filter(Boolean));
+      items = [PENNANT, ...manifest.items.filter(i => i.unlockLevel <= level && !replaced.has(i.id)), ...seasonal];
+      const has = id => items.some(i => i.id === id);
+      if (todayCfg) items.push(...todayCfg.items.filter(i => propShows(i, today, has)));
+    }
     floor = createFloor(items.filter(i => i.blockedTiles).map(i => i.blockedTiles));
     me.at = floor.settle(me.at);   // a new piece might stand where you are
     me.path = [];
@@ -235,15 +248,24 @@ export function createRoom(canvas, els) {
   // character sorted by depthY (the character's is the screen y of its feet).
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(imgs[DIR + manifest.shell], 0, 0);
+    ctx.drawImage(imgs[manifest.dir + manifest.shell], 0, 0);
     items.filter(i => i.layer === "wall").forEach(drawItem);
     items.filter(i => i.layer === "floor").forEach(drawItem);
-    const feet = toScreen(me.at.x, me.at.y).y;
-    const objects = items.filter(i => i.layer === "object").sort((a, b) => a.depthY - b.depthY);
-    objects.filter(i => i.depthY <= feet).forEach(drawItem);
-    drawMe();
-    objects.filter(i => i.depthY > feet).forEach(drawItem);
-    drawDay();
+    // Objects, pets and Leo in depth order (a tie goes to the furniture first, so Leo stands in front of it).
+    const now = performance.now();
+    const stack = [
+      ...items.filter(i => i.layer === "object").map(i => ({ d: i.depthY, run: () => drawItem(i) })),
+      ...(world === "pets" && petLife ? petLife.list(now).filter(p => petSheets[p.id]).map(p => ({ d: p.depth, run: () => drawPet(p) })) : []),
+      { d: toScreen(me.at.x, me.at.y).y, run: drawMe, last: true }
+    ];
+    stack.sort((a, b) => a.d - b.d || (a.last ? 1 : 0) - (b.last ? 1 : 0)).forEach(e => e.run());
+    if (world === "room") drawDay();
+  }
+
+  // A pet: its feet (the middle of the bottom row of its frame) land on a room pixel.
+  function drawPet(p) {
+    ctx.drawImage(petSheets[p.id], p.index * PET_FRAME.w, 0, PET_FRAME.w, PET_FRAME.h,
+      Math.round(p.x) - PET_FRAME.feetX, Math.round(p.y) - PET_FRAME.feetY, PET_FRAME.w, PET_FRAME.h);
   }
 
   // Over everything: the dim of a day with nothing logged yet, the sleepy zzz, a great day's sparkle.
@@ -388,9 +410,13 @@ export function createRoom(canvas, els) {
       i.interact.tile[0] === tx && i.interact.tile[1] === ty) || null;
   }
 
+  // Is this door locked right now? main.js decides (doors[room]); until it does, the manifest's "locked" holds.
+  const locked = it => { const d = doors[world]; return d && "locked" in d ? d.locked : !!it.interact.locked; };
+
   function bubbleFor(it) {
     if (it.interact.action === "closet") return { text: "Press E", button: "Open" };
-    return { text: level >= DOOR_LEVEL ? "Coming soon" : `Locked, reach level ${DOOR_LEVEL}` };
+    if (locked(it)) return { text: (doors[world] && doors[world].hint) || "Locked" };
+    return { text: `Press E: ${it.interact.to === "pets" ? "pet room" : "your room"}`, button: "Open" };
   }
 
   // Show, hide or move the bubble. It sits above the piece, in the canvas's CSS pixels.
@@ -416,9 +442,9 @@ export function createRoom(canvas, els) {
   // E, Enter or the Open button: use the piece you're standing at.
   function use() {
     const it = pieceHere();
-    if (!it || it.interact.action !== "closet") return false;
-    held.clear();   // a box opens over the room, so stop walking
-    onAction(it.interact.action);
+    if (!it || (it.interact.action === "next_room" && locked(it)) || !["closet", "next_room"].includes(it.interact.action)) return false;
+    held.clear();   // a box opens over the room, or we're off to the next one, so stop walking
+    onAction(it.interact.action, it);
     return true;
   }
 
@@ -431,6 +457,7 @@ export function createRoom(canvas, els) {
     update(now, dt);
     follow(dt);
     if (pops.size) dirty = true;   // furniture dropping in
+    if (world === "pets" && petLife && petLife.update(now)) dirty = true;
     dayTick(now);
     if (dirty) { draw(); dirty = false; }
     present();
@@ -440,7 +467,7 @@ export function createRoom(canvas, els) {
   // Today's moving bits: a new sparkle now and then on a great day, and a redraw every 100 ms while
   // something moves (the code lines, the candle flame, the zzz, a sparkle). Reduced motion: nothing moves.
   function dayTick(now) {
-    if (reduced) return;
+    if (reduced || world !== "room") return;
     if (today.coded && today.ran && now >= nextSpark) {
       if (nextSpark) spark = { at: now, dx: Math.round(Math.random() * 28 - 14), dy: -Math.round(20 + Math.random() * 22) };
       nextSpark = now + SPARK_EVERY[0] + Math.random() * (SPARK_EVERY[1] - SPARK_EVERY[0]);
@@ -454,7 +481,7 @@ export function createRoom(canvas, els) {
     imgs = loaded;
     me.at = tileMiddle(manifest.spawnTile || [5, 7]);
     furnish();
-    masks = alphaMasks();
+    masks = alphaMasks(imgs);
     rest(performance.now());
     requestAnimationFrame(tick);
   }).catch(e => console.warn(e.message));
@@ -490,10 +517,10 @@ export function createRoom(canvas, els) {
   els.open.addEventListener("click", use);
 
   // Each piece's see-through pixels, so a click can tell the closet from the floor behind it.
-  function alphaMasks() {
+  function alphaMasks(images) {
     const out = {};
     try {
-      Object.entries(imgs).forEach(([file, img]) => {
+      Object.entries(images).forEach(([file, img]) => {
         const c = document.createElement("canvas");
         c.width = img.width;
         c.height = img.height;
@@ -522,7 +549,12 @@ export function createRoom(canvas, els) {
     const x = Math.floor(((e.clientX - r.left) * canvas.width / r.width - offX) / k);
     const y = Math.floor(((e.clientY - r.top) * canvas.height / r.height - offY) / k);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
-    keysAt = performance.now() - KEYS_REST_MS + 2000;   // stay put a little longer after a click
+    const now = performance.now();
+    if (world === "pets" && petLife) {                  // a click on a pet gives it a heart
+      const pet = petLife.hit(x, y, now);
+      if (pet) { petLife.cheer(pet.id, now); dirty = true; return; }
+    }
+    keysAt = now - KEYS_REST_MS + 2000;   // stay put a little longer after a click
     const it = pieceAt(x, y);
     if (it) { if (it.interact) walkTo(tileMiddle(it.interact.tile)); return; }   // the closet: go stand at it
     const p = toWorld(x + 0.5, y + 0.5);
@@ -565,7 +597,7 @@ export function createRoom(canvas, els) {
     const want = Math.max(1, Math.min(MAX_LEVEL, Math.round(n) || 1));
     if (want === level && items.length) return;   // nothing changes
     level = want;
-    if (manifest) furnish();
+    if (manifest && world === "room") furnish();
   }
 
   // Drop these pieces in (after a level up). Reduced motion: they're simply there.
@@ -578,7 +610,7 @@ export function createRoom(canvas, els) {
 
   // The ids of the pieces that arrive at each level from `above`+1 up to `upTo` (for the banner and the info box).
   const piecesBetween = (above, upTo) => ready.then(() =>
-    manifest.items.filter(i => i.unlockLevel > above && i.unlockLevel <= upTo)
+    roomManifest.items.filter(i => i.unlockLevel > above && i.unlockLevel <= upTo)
       .sort((a, b) => a.unlockLevel - b.unlockLevel).map(i => i.id)).catch(() => []);
 
   // Put the character at a piece's interact tile, standing still and facing you (after the closet).
@@ -597,7 +629,7 @@ export function createRoom(canvas, els) {
   // Dev only: "none" hides every seasonal event, an id shows that one whatever the date, null goes by date.
   function setEvent(choice) {
     eventChoice = choice || null;
-    if (manifest) furnish();
+    if (manifest && world === "room") furnish();
   }
 
   // The seasonal events on right now, for the banner: [{ id, name, banner, season (the year) }].
@@ -610,9 +642,70 @@ export function createRoom(canvas, els) {
     today = state;
     if (JSON.stringify(state) === before) return;
     if (!today.coded || !today.ran) spark = null;
-    if (manifest) furnish();
+    if (manifest && world === "room") furnish();
     dirty = true;
   }
 
-  return { setPlayer, setLevel, popIn, piecesBetween, setEvent, currentEvents, setToday, standAt, onAction: fn => (onAction = fn) };
+  // ----- the pet room -----
+
+  // The pet room's manifest, art and pets' life, loaded the first time you go there.
+  function loadPets() {
+    petsLoading = petsLoading || loadJson(PETS_DIR + "petroom_manifest.json").then(async m => {
+      const pm = { ...m, dir: PETS_DIR, items: m.items.map(i => ({ ...i, src: PETS_DIR + i.sprite })) };
+      const files = [PETS_DIR + m.shell, ...new Set(pm.items.map(i => i.src))];
+      const loaded = await Promise.all(files.map(async f => [f, await loadImage(f)]));
+      await ready;
+      loaded.forEach(([f, img]) => (imgs[f] = img));
+      Object.assign(masks, alphaMasks(Object.fromEntries(loaded)));
+      petManifest = pm;
+      petLife = createPetLife(pm.petSpots, { reduced, depthOf: id => (pm.items.find(i => i.id === id) || {}).depthY || 0 });
+      applyPets();
+    }).catch(e => { petsLoading = null; throw e; });
+    return petsLoading;
+  }
+
+  // Put the pets you chose into the pet room: [{ id, kind }] (an empty list for a visitor).
+  // Pets that are already there stay put; a different list sends everyone to new spots.
+  function applyPets() {
+    if (!petLife) return;
+    const key = JSON.stringify(wantPets);
+    if (key !== shownPets) { petLife.set(wantPets, performance.now()); shownPets = key; }
+    wantPets.forEach(({ id }) => {
+      if (!petSheets[id]) loadSprite(`${SHEETS_DIR}${id}.png`).then(img => { petSheets[id] = img; dirty = true; }).catch(e => console.warn(e.message));
+    });
+    dirty = true;
+  }
+  function setPets(list) {
+    wantPets = list;
+    applyPets();
+  }
+
+  // Go to the other room ("room" or "pets"). Leo arrives one tile in front of its door.
+  async function enter(name) {
+    await ready;
+    if (name === "pets") await loadPets();
+    if (name === world) return;
+    world = name;
+    manifest = name === "pets" ? petManifest : roomManifest;
+    const now = performance.now();
+    stopWalking(now);
+    me.at = tileMiddle(manifest.arriveTile || manifest.spawnTile || [5, 7]);
+    me.path = [];
+    held.clear();
+    cam.set = false;
+    furnish();
+    rest(now);
+  }
+
+  // main.js says whether a room's door is locked, and what to tell the player if it is.
+  function setDoor(name, state) {
+    doors[name] = state;
+    near = null;
+    dirty = true;
+  }
+
+  return {
+    setPlayer, setLevel, popIn, piecesBetween, setEvent, currentEvents, setToday, standAt,
+    enter, setDoor, setPets, world: () => world, onAction: fn => (onAction = fn)
+  };
 }

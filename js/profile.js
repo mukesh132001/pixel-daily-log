@@ -3,6 +3,7 @@
 
 import { store, runsKey, LAST_USER } from "./storage.js";
 import { mergeLedgers } from "./xp.js";
+import { mergePets } from "./adopt.js";
 
 const KEY = "pdl:profile";
 
@@ -17,6 +18,7 @@ const newId = () => "p_" + Array.from(crypto.getRandomValues(new Uint8Array(12))
 //   pet:       { type, name }
 //   xp:        { days: { "2026-10-29": 42, ... }, older: 0 }   XP earned per day (see xp.js)
 //   levelSeen: the last room level we celebrated, so each level up gets one "Level up!"
+//   pets:      { have: { shiba: ["2026-10-30", 0] }, room: ["shiba"] }   adopted pets (day, XP paid) and who's in the room
 //   eventsSeen: { halloween: 2026 }   the last year each seasonal banner was shown ("Happy Halloween!")
 //   character: the old layered look from art.js. Only gallery.html still uses it.
 export function newProfile(fields = {}) {
@@ -35,6 +37,7 @@ export function newProfile(fields = {}) {
     xp: { days: {}, older: 0 },
     levelSeen: 1,
     eventsSeen: {},
+    pets: { have: {}, room: [] },
     createdAt: new Date().toISOString(),
     ...fields
   };
@@ -58,7 +61,7 @@ export function saveProfile(p, { quiet = false } = {}) {
 
 // The only fields that go to your account. Strava tokens and hand-logged runs aren't on the profile,
 // and anything added to it later stays in this browser until it's listed here.
-const CLOUD_FIELDS = ["v", "id", "name", "about", "school", "characterId", "unlocked", "log", "pet", "github", "createdAt", "xp", "levelSeen", "eventsSeen"];
+const CLOUD_FIELDS = ["v", "id", "name", "about", "school", "characterId", "unlocked", "log", "pet", "github", "createdAt", "xp", "levelSeen", "eventsSeen", "pets"];
 export const cloudCopy = p => Object.fromEntries(CLOUD_FIELDS.filter(k => k in p).map(k => [k, p[k]]));
 
 // Two copies of the same profile (this browser and your account): keep base's choices, and everything
@@ -69,6 +72,7 @@ export function mergeProgress(base, other) {
   merged.log.best = Math.max(merged.log.best, (other.log && other.log.best) || 0);
   merged.xp = mergeLedgers(base.xp, other.xp);
   merged.levelSeen = Math.max(base.levelSeen || 1, other.levelSeen || 1);
+  merged.pets = mergePets(base.pets, other.pets);
   merged.eventsSeen = { ...(other.eventsSeen || {}) };
   Object.entries(base.eventsSeen || {}).forEach(([id, year]) => (merged.eventsSeen[id] = Math.max(merged.eventsSeen[id] || 0, year)));
   return merged;

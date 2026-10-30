@@ -6,3 +6,6 @@ art-packs/
 # macOS leftovers from unzipping
 __MACOSX/
 .DS_Store
+
+# Python bytecode from the art tools in tools/
+__pycache__/
