@@ -1,14 +1,14 @@
 // Pets in the pet room: who is where, and how they move. Only logic here (no page), so it's easy to test;
 // room.js draws what this says.
 //
-// Pet art is sprites/pets/sheets/<id>.png: 8 frames of 28x30, with no walk cycle. So a pet doesn't walk: it moves
+// Pet art is sprites/pets/sheets/<id>.png: 8 frames of 21x21, with no walk cycle. So a pet doesn't walk: it moves
 // between the room's spots (sprites/petroom/petroom_manifest.json, "petSpots") with a small hop, and at each spot it
 // does one thing: sit (tail wag and blinks), eat at the bowl, or sleep on a bed.
 // Reduced motion: pets stay where they are with their first frame (no wag, blink, hop or wandering).
 
 import { toScreen } from "./roomfloor.js";
 
-export const PET_FRAME = { w: 28, h: 30, feetX: 14, feetY: 28 };   // feet: the middle of the bottom row
+export const PET_FRAME = { w: 21, h: 21, feetX: 10, feetY: 19 };   // feet: the middle of the bottom row
 export const FRAMES = { sitA: 0, sitB: 1, blink: 2, happy: 3, eatA: 4, eatB: 5, sleepA: 6, sleepB: 7 };
 
 const WAG_MS = 420;                 // tail wag: sitA, sitB
@@ -106,7 +106,7 @@ export function createPetLife(spots, { rand = Math.random, reduced = false, dept
 
   // The front-most pet under room pixel (x, y), or null.
   function hit(x, y, now) {
-    const found = list(now).filter(p => x >= p.x - 12 && x <= p.x + 12 && y >= p.y - 26 && y <= p.y + 2).sort((a, b) => b.depth - a.depth)[0];
+    const found = list(now).filter(p => x >= p.x - 10 && x <= p.x + 10 && y >= p.y - 20 && y <= p.y + 2).sort((a, b) => b.depth - a.depth)[0];
     return found || null;
   }
 

@@ -55,8 +55,8 @@ SPOTS = [
     dict(id="cat_bed", kind="cat", pose="sleep", x=14, y=48.5, z=5, on="cat_bed"),
 ]
 
-PET_FRAME = (28, 30)    # sprites/pets: sitA, sitB, blink, happy, eatA, eatB, sleepA, sleepB
-PET_FEET = (14, 28)     # the middle of the feet and the bottom row, in a pet frame
+PET_FRAME = (21, 21)    # sprites/pets: sitA, sitB, blink, happy, eatA, eatB, sleepA, sleepB
+PET_FEET = (10, 19)     # the middle of the feet and the bottom row, in a pet frame
 LEO = dict(w=32, h=40, feet=35)
 SPAWN_TILE = [8, 2]     # where Leo arrives, one tile in front of the pet door
 

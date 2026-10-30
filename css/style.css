@@ -228,7 +228,7 @@ button,input{font:inherit;color:inherit}
 .adopt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px;width:100%}
 .adopt-card{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 8px;background:var(--tile)}
 .adopt-card.owned{outline:3px solid var(--code);outline-offset:-3px}
-.adopt-card canvas{width:84px;height:90px;image-rendering:pixelated;image-rendering:crisp-edges}   /* 3x the 28x30 art */
+.adopt-card canvas{width:84px;height:84px;image-rendering:pixelated;image-rendering:crisp-edges}   /*  4x the 21x21 art */
 .adopt-card .btn{margin-top:6px;min-height:40px;padding:4px 10px;font-size:1.1rem}
 .adopt-card .btn:disabled{cursor:not-allowed}
 .room-dev select{font:inherit;padding:2px 4px}

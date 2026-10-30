@@ -20,12 +20,12 @@
   "layers": "draw shell, then wall items, then floor items, then objects, pets and the character sorted by depthY (smaller first)",
   "pet": {
     "frame": [
-      28,
-      30
+      21,
+      21
     ],
     "feet": [
-      14,
-      28
+      10,
+      19
     ],
     "frames": [
       "sitA",
