@@ -9,13 +9,13 @@ def P_(base,muz,collar,outline='#3b2620',ear=None,X=None,Z=None,paw=None,**kw):
 PETS=[
 # ---- dogs ----
 dict(id='shiba',name='Shiba',kind='dog',rarity='common',ears='pointy',tail='curly',pal=P_('#e3954a','#fbeedb','#d9534f')),
-dict(id='corgi',name='Corgi',kind='dog',rarity='common',ears='big',tail='stub',marks=m_mask_husky,pal=P_('#e89a52','#fdf3e4','#3f8fd9')),
-dict(id='golden',name='Golden Retriever',kind='dog',rarity='common',ears='floppy',tail='plume',pal=P_('#e7b562','#f6dca4','#4caf7d',ear='#c98f3e')),
+dict(id='corgi',name='Corgi',kind='dog',rarity='common',ears='big',tail='stub',marks=m_corgi,pal=P_('#e89a52','#fdf3e4','#3f8fd9')),
+dict(id='golden',name='Golden Retriever',kind='dog',rarity='common',ears='floppy',tail='plume',marks=m_golden,pal=P_('#e7b562','#f6dca4','#4caf7d',ear='#c98f3e')),
 dict(id='blacklab',name='Black Lab',kind='dog',rarity='common',ears='floppy',tail='straight',pal=P_('#3d3a40','#56525a','#f28c38',outline='#16141a',ear='#2a272d',N='#111111',E='#f6e7b0',W='#2a1a14')),
 dict(id='beagle',name='Beagle',kind='dog',rarity='rare',ears='floppy',tail='straight',marks=m_beagle,pal=P_('#c9853f','#fbf3e6','#e04f6a',ear='#8a5428',X='#3b3036')),
 dict(id='dalmatian',name='Dalmatian',kind='dog',rarity='rare',ears='floppy',tail='straight',marks=m_spots,pal=P_('#f7f5f2','#ffffff','#e04f3f',outline='#2b2b33',ear='#2f2f36',X='#2f2f36',s='#e6e3de')),
-dict(id='pug',name='Pug',kind='dog',rarity='rare',ears='folded',tail='curly',marks=m_points,pal=P_('#e3c49a','#e3c49a','#9b6fd6',F='#3a2c28',X='#3a2c28',Z='#3a2c28',paw='#e3c49a')),
-dict(id='husky',name='Husky',kind='dog',rarity='epic',ears='pointy',tail='plume',blue=True,marks=m_mask_husky,pal=P_('#7d8794','#f4f6f8','#2f9e8f',outline='#262b33',I='#e7b3b8')),
+dict(id='pug',name='Pug',kind='dog',rarity='rare',ears='folded',tail='curly',marks=m_pug,pal=P_('#e3c49a','#e3c49a','#9b6fd6',F='#3a2c28',X='#3a2c28',Z='#3a2c28',paw='#e3c49a')),
+dict(id='husky',name='Husky',kind='dog',rarity='epic',ears='pointy',tail='plume',blue=True,marks=m_husky,pal=P_('#7d8794','#f4f6f8','#2f9e8f',outline='#262b33',I='#e7b3b8')),
 dict(id='poodle',name='Poodle',kind='dog',rarity='epic',ears='floppy',tail='straight',marks=m_poodle,pal=P_('#e7a978','#f8d9bb','#e86fa3',ear='#cf8e5c',X='#f3c49a')),
 dict(id='samoyed',name='Samoyed',kind='dog',rarity='epic',ears='fluff',tail='plume',pal=P_('#fbfaf6','#ffffff','#5a8de0',outline='#4a4450',s='#e3e0d8',I='#f2c4c4')),
 dict(id='pixelpup',name='Pixel Pup',kind='dog',rarity='legendary',ears='big',tail='straight',marks=m_pixel,pal=P_('#5fe0c8','#d9fff6','#ff5dc8',outline='#173a46',X='#3bbfa8',Z='#9ffff0',E='#173a46',I='#ff9de2',T='#ff5dc8')),
@@ -34,7 +34,7 @@ dict(id='cosmic',name='Cosmic Cat',kind='cat',rarity='legendary',tail='fluffy',m
 ]
 FRAMES=['sitA','sitB','blink','happy','eatA','eatB','sleepA','sleepB']
 def render(spec,frame,sc=1):
-    g=sit_on_feet(shrink_grid(pose(spec,frame))); pal={k:hx(v) for k,v in spec['pal'].items()}
+    g=pose(spec,frame); pal={k:hx(v) for k,v in spec['pal'].items()}
     im=Image.new('RGBA',(FW,FH),(0,0,0,0))
     for y in range(FH):
         for x in range(FW):
