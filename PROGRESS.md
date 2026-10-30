@@ -1,6 +1,6 @@
 # PROGRESS.md: where Pixel daily log stands
 
-Last updated: Thursday, Oct 29, 2026. Update this file whenever a pull request is merged or a decision is made.
+Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is merged or a decision is made.
 
 ## ✅ Live right now
 
@@ -64,11 +64,19 @@ Last updated: Thursday, Oct 29, 2026. Update this file whenever a pull request i
   - **Level up!** banner naming the new pieces, which drop in (not with reduced motion); `levelSeen` on the profile so it shows once
   - peeks: "~Lv 3" from their last 4 weeks of public GitHub, saved nowhere
   - dev: `?dev&xp=500` fakes the total for a visit (saves nothing); the level picker still works
-- **`halloween`** is pushed, waiting for its pull request (merge before Nov 1 ends to see it this year):
+- **Also merged:** `halloween` (PR 20):
   - Halloween decor in `sprites/events/halloween/` shows Oct 25 – Nov 1 (local time) at every level: cobwebs, bat garland, spooky lights (replace the string lights), pumpkins on the sill and by the desk (blocks tile 3,0), ghost plush on the bed, candy bucket on the rug
   - a general events system: add `sprites/events/<id>/<id>_manifest.json` and the id to `EVENTS` in room.js; dates can wrap past New Year
   - "Happy Halloween! 🎃" banner (text from the manifest's `banner`) once a year, remembered in `eventsSeen` (synced); banners queue after a level-up
   - dev: `?dev&event=halloween` / `?dev&event=none`
+- **`room-today`** is pushed, waiting for its pull request: the room shows what you did today
+  - coded (1+ contribution or a push): the monitor glows with scrolling green code lines, brighter for contribution levels 1–4
+  - ran: shoes by the foot of the bed and a water bottle on the desk; a run of 3.1+ mi (5 km) adds a medal on the left wall
+  - coded and ran: a gold sparkle near the character every few seconds
+  - nothing logged yet: the room dims a bit and the idle plays slower; after 9pm a zzz bubble
+  - streak 3+: a candle with the number on the bookshelf (on the closet before level 3)
+  - props are placeholders drawn in `js/roomtoday.js`; `sprites/today/today_manifest.json` says where each goes, so a PNG can replace any of them
+  - reduced motion: props stay, nothing moves; peeks show the other person's day; dev: `?dev&today=coded|ran|both|none` (+ `&hour=22`, `&streak=7`)
 
 
 ## 🧭 Decisions we made
