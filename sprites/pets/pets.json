@@ -1,6 +1,8 @@
 {
-  "frameWidth": 28,
-  "frameHeight": 30,
+  "frameWidth": 21,
+  "frameHeight": 21,
+  "feetX": 10,
+  "feetY": 19,
   "frames": [
     "sitA",
     "sitB",

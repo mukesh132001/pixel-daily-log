@@ -56,7 +56,7 @@ js/font.js          the A-Z pixel font
 sprites/room/       Pixmod's own room art (OK to commit): room_shell.png, one PNG per item, room_manifest.json (positions, layers, depthY, blockedTiles, interact, unlockLevel) and README.md (the rules room.js follows). Raw packs in assets/ and art-packs/ are git-ignored, never commit them
 sprites/events/<id>/  seasonal decor (OK to commit): <id>_manifest.json with active dates (month-day, local, can wrap past New Year), banner text, items (same rules as the room; `replaces` hides a base piece). Add the id to EVENTS in room.js
 sprites/petroom/    the pet room, exported from tools/dogroom in the same format as sprites/room/ (+ petSpots for pets). Regenerate with python export_room.py (needs Pillow), don't edit the PNGs by hand
-sprites/pets/       Pixmod's pet pack (OK to commit): 22 dogs and cats, sheets/<id>.png of 8 frames at 28x30 (sitA, sitB, blink, happy, eatA, eatB, sleepA, sleepB), pets.json (kind, rarity, cost)
+sprites/pets/       Pixmod's pet pack (OK to commit): 22 dogs and cats, sheets/<id>.png of 8 frames at 21x21, drawn natively, feet on row 19 (sitA, sitB, blink, happy, eatA, eatB, sleepA, sleepB), pets.json (kind, rarity, cost)
 tools/              the Python art generators (dogroom, petpack), not part of the site
 sprites/today/      today_manifest.json: where the today props go (shoes, bottle, medal, candle, zzz), when they show, and the monitor screen's shape. "sprite": null = placeholder from roomtoday.js; drop in a PNG and name it there to swap
 js/runs.js          hand-logged runs and pace math
