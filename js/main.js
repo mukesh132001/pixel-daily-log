@@ -76,6 +76,7 @@ room.onAction((action, it) => {
 
 // The dev level picker shows the room at any level 1-5, whatever your XP says.
 if (DEV) {
+  window.__room = room;   // a handle for the browser console and the tests (localhost ?dev only)
   if (DEV_EVENT) room.setEvent(DEV_EVENT);
   if (devLevel) $("roomLevel").value = String(devLevel);
   $("roomLevel").addEventListener("change", () => {

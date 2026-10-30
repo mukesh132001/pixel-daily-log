@@ -6,6 +6,9 @@
 // 1:1 into a hidden 256x256 buffer, then copied onto the screen canvas at a whole number of device pixels per
 // room pixel (about 2x, or 3x on big screens), so pixels never get blurry or uneven.
 //
+// The size: the room's art (not the empty margins of the 256x256 canvas) is drawn at the largest whole number of
+// device pixels that fits the screen, but never below 2 CSS pixels per room pixel. Both rooms share one scale.
+//
 // The camera: if the scaled room fits, it sits in the middle. If it doesn't (phones), it follows your
 // character smoothly, stopped at the room's edges so there's never empty space past them.
 //
@@ -52,7 +55,8 @@ const SPARK_EVERY = [2500, 5500];     // and a new one this often on a great day
 const QUIET_IDLE = 1.6;               // nothing logged yet: the idle animation plays this much slower
 const DIM = "rgba(40, 26, 52, 0.22)"; // and the room is a bit dimmer
 const W = 256, H = 256;
-const BIG = W * 3;                    // a room area at least this wide (CSS pixels) gets 3x instead of 2x
+const MIN_SCALE = 2;                  // never smaller than this many CSS pixels per room pixel (phones get the camera)
+const PAD = 8;                        // breathing room around the art, in room pixels
 
 const POP_MS = 600;                   // how long new furniture takes to drop in after a level up
 
@@ -127,6 +131,8 @@ export function createRoom(canvas, els) {
   let keysAt = -Infinity;             // when you last walked it yourself
   const cam = { x: 0, y: 0, set: false };
   let offX = 0, offY = 0, dirty = true, near = null;
+  const boxes = {};                   // each room's art edges, in room pixels
+  let box = { x0: 0, y0: 0, x1: W, y1: H };   // the edges of everything we might show (both rooms)
 
   // The room's manifest and art, then each seasonal event's. Every piece gets src, the path of its image.
   // A seasonal event that doesn't load is just skipped; the room itself never waits on one.
@@ -306,21 +312,55 @@ export function createRoom(canvas, els) {
     }
   }
 
+  // The art's real edges in room pixels (the canvas has empty margins), with a little breathing room.
+  function measure(img) {
+    let x0 = 0, y0 = 0, x1 = W, y1 = H;
+    try {
+      const c = document.createElement("canvas");
+      c.width = img.width;
+      c.height = img.height;
+      const t = c.getContext("2d");
+      t.drawImage(img, 0, 0);
+      const d = t.getImageData(0, 0, c.width, c.height).data;
+      x0 = c.width; y0 = c.height; x1 = y1 = 0;
+      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+        if (d[(y * c.width + x) * 4 + 3] === 0) continue;
+        if (x < x0) x0 = x;
+        if (x + 1 > x1) x1 = x + 1;
+        if (y < y0) y0 = y;
+        if (y + 1 > y1) y1 = y + 1;
+      }
+    } catch (e) { /* can't read pixels (opened as a file): use the whole canvas */ }
+    return { x0: Math.max(0, x0 - PAD), y0: Math.max(0, y0 - PAD), x1: Math.min(W, x1 + PAD), y1: Math.min(H, y1 + PAD) };
+  }
+
+  // Pick the scale: the largest whole number of device pixels per room pixel at which the art fits the screen
+  // (counting device pixels keeps it crisp at 125% or 150% zoom), but at least 2 CSS pixels so phones get the camera.
+  function rescale() {
+    const all = Object.values(boxes);
+    if (all.length) box = { x0: Math.min(...all.map(b => b.x0)), y0: Math.min(...all.map(b => b.y0)), x1: Math.max(...all.map(b => b.x1)), y1: Math.max(...all.map(b => b.y1)) };
+    const dpr = window.devicePixelRatio || 1;
+    const fits = Math.floor(Math.min(canvas.width / (box.x1 - box.x0), canvas.height / (box.y1 - box.y0)));
+    k = Math.max(1, Math.round(MIN_SCALE * dpr), fits);
+    cam.set = false;   // jump straight to the character after a resize
+    dirty = true;
+  }
+
   // Copy the room onto the screen canvas through the camera.
   function present() {
-    offX = offset(canvas.width, W, cam.x);
-    offY = offset(canvas.height, H, cam.y);
+    offX = offset(canvas.width, box.x0, box.x1, cam.x);
+    offY = offset(canvas.height, box.y0, box.y1, cam.y);
     view.imageSmoothingEnabled = false;   // resizing a canvas resets this, so set it every time
     view.clearRect(0, 0, canvas.width, canvas.height);
     view.drawImage(buf, offX, offY, W * k, H * k);
   }
 
-  // Where the room's left (or top) edge goes on screen, in device pixels. Centered if it fits;
-  // otherwise centered on what the camera looks at, but never past the room's edges.
-  function offset(screen, size, focus) {
-    const room = size * k;
-    if (room <= screen) return Math.floor((screen - room) / 2);
-    return -Math.min(Math.max(0, Math.round(focus * k - screen / 2)), room - screen);
+  // Where the canvas's left (or top) edge goes on screen, in device pixels. The art (lo to hi, in room pixels) is
+  // centered if it fits; otherwise it's centered on what the camera looks at, but never past the art's edges.
+  function offset(screen, lo, hi, focus) {
+    const span = (hi - lo) * k;
+    if (span <= screen) return Math.floor((screen - span) / 2) - lo * k;
+    return -Math.min(Math.max(lo * k, Math.round(focus * k - screen / 2)), hi * k - screen);
   }
 
   // ----- moving -----
@@ -482,6 +522,8 @@ export function createRoom(canvas, els) {
     me.at = tileMiddle(manifest.spawnTile || [5, 7]);
     furnish();
     masks = alphaMasks(imgs);
+    boxes.room = measure(imgs[DIR + roomManifest.shell]);
+    rescale();
     rest(performance.now());
     requestAnimationFrame(tick);
   }).catch(e => console.warn(e.message));
@@ -561,17 +603,13 @@ export function createRoom(canvas, els) {
     if (floor.inside(p.x, p.y)) walkTo(floor.settle(p));
   });
 
-  // CSS stretches the canvas over the whole room area. Match its pixels to the screen's real pixels,
-  // and pick the scale: 2x, or 3x when the area is big. (Counting device pixels keeps it crisp on
-  // screens set to 125% or 150%, where 2x becomes 2.5 device pixels and gets rounded to 3.)
+  // CSS stretches the canvas over the whole room area. Match its pixels to the screen's real pixels, then pick the scale.
   function fit(entries) {
     const dpr = window.devicePixelRatio || 1;
     const size = entries && entries[0].devicePixelContentBoxSize && entries[0].devicePixelContentBoxSize[0];
     canvas.width = size ? size.inlineSize : Math.round(canvas.clientWidth * dpr);
     canvas.height = size ? size.blockSize : Math.round(canvas.clientHeight * dpr);
-    k = Math.max(1, Math.round((canvas.clientWidth >= BIG ? 3 : 2) * dpr));
-    cam.set = false;   // jump straight to the character after a resize
-    dirty = true;
+    rescale();
   }
   const watch = new ResizeObserver(fit);
   try { watch.observe(canvas, { box: "device-pixel-content-box" }); }   // exact device pixels where supported
@@ -658,6 +696,8 @@ export function createRoom(canvas, els) {
       loaded.forEach(([f, img]) => (imgs[f] = img));
       Object.assign(masks, alphaMasks(Object.fromEntries(loaded)));
       petManifest = pm;
+      boxes.pets = measure(imgs[PETS_DIR + m.shell]);
+      rescale();
       petLife = createPetLife(pm.petSpots, { reduced, depthOf: id => (pm.items.find(i => i.id === id) || {}).depthY || 0 });
       applyPets();
     }).catch(e => { petsLoading = null; throw e; });
@@ -706,6 +746,7 @@ export function createRoom(canvas, els) {
 
   return {
     setPlayer, setLevel, popIn, piecesBetween, setEvent, currentEvents, setToday, standAt,
-    enter, setDoor, setPets, world: () => world, onAction: fn => (onAction = fn)
+    enter, setDoor, setPets, world: () => world, onAction: fn => (onAction = fn),
+    layout: () => ({ k, offX, offY, box: { ...box }, boxes: { ...boxes }, canvas: [canvas.width, canvas.height] })
   };
 }
