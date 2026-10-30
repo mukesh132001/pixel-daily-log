@@ -1,0 +1,328 @@
+{
+  "name": "Pet room",
+  "nativeSize": [
+    256,
+    256
+  ],
+  "tileSize": 10,
+  "grid": [
+    10,
+    10
+  ],
+  "wallHeight": 72,
+  "origin": {
+    "note": "screen = (128 + (x - y), 112 + (x + y)/2 - z) in native pixels; x,y,z are world units, 10 units = 1 tile"
+  },
+  "spawnTile": [
+    8,
+    2
+  ],
+  "layers": "draw shell, then wall items, then floor items, then objects, pets and the character sorted by depthY (smaller first)",
+  "pet": {
+    "frame": [
+      28,
+      30
+    ],
+    "feet": [
+      14,
+      28
+    ],
+    "frames": [
+      "sitA",
+      "sitB",
+      "blink",
+      "happy",
+      "eatA",
+      "eatB",
+      "sleepA",
+      "sleepB"
+    ],
+    "note": "sprites/pets/sheets/<id>.png. A pet's feet go at screen (x, y - z) of its spot; on: draw it right after that item."
+  },
+  "petSpots": [
+    {
+      "id": "rug_mid",
+      "kind": "any",
+      "pose": "sit",
+      "x": 62,
+      "y": 64
+    },
+    {
+      "id": "rug_left",
+      "kind": "any",
+      "pose": "sit",
+      "x": 50,
+      "y": 78
+    },
+    {
+      "id": "rug_right",
+      "kind": "any",
+      "pose": "sit",
+      "x": 74,
+      "y": 50
+    },
+    {
+      "id": "bowl",
+      "kind": "any",
+      "pose": "eat",
+      "x": 57,
+      "y": 26
+    },
+    {
+      "id": "dog_bed",
+      "kind": "dog",
+      "pose": "sleep",
+      "x": 20,
+      "y": 73,
+      "z": 5,
+      "on": "dog_bed"
+    },
+    {
+      "id": "kennel",
+      "kind": "dog",
+      "pose": "sleep",
+      "x": 22,
+      "y": 35.5,
+      "on": "kennel"
+    },
+    {
+      "id": "cat_bed",
+      "kind": "cat",
+      "pose": "sleep",
+      "x": 14,
+      "y": 48.5,
+      "z": 5,
+      "on": "cat_bed"
+    }
+  ],
+  "items": [
+    {
+      "id": "window",
+      "sprite": "window.png",
+      "layer": "wall",
+      "x": 62,
+      "y": 59,
+      "w": 46,
+      "h": 68,
+      "unlockLevel": 1
+    },
+    {
+      "id": "picture",
+      "sprite": "picture.png",
+      "layer": "wall",
+      "x": 168,
+      "y": 80,
+      "w": 15,
+      "h": 24,
+      "unlockLevel": 1
+    },
+    {
+      "id": "shelf",
+      "sprite": "shelf.png",
+      "layer": "wall",
+      "x": 179,
+      "y": 89,
+      "w": 28,
+      "h": 22,
+      "unlockLevel": 1
+    },
+    {
+      "id": "leash_hooks",
+      "sprite": "leash_hooks.png",
+      "layer": "wall",
+      "x": 210,
+      "y": 99,
+      "w": 13,
+      "h": 20,
+      "unlockLevel": 1
+    },
+    {
+      "id": "pet_door",
+      "sprite": "pet_door.png",
+      "layer": "wall",
+      "x": 212,
+      "y": 139,
+      "w": 13,
+      "h": 22,
+      "unlockLevel": 1,
+      "interact": {
+        "action": "next_room",
+        "to": "room",
+        "tile": [
+          8,
+          1
+        ]
+      }
+    },
+    {
+      "id": "bone_clock",
+      "sprite": "bone_clock.png",
+      "layer": "wall",
+      "x": 38,
+      "y": 101,
+      "w": 13,
+      "h": 10,
+      "unlockLevel": 1
+    },
+    {
+      "id": "string_lights",
+      "sprite": "string_lights.png",
+      "layer": "wall",
+      "x": 130,
+      "y": 49,
+      "w": 97,
+      "h": 52,
+      "unlockLevel": 1
+    },
+    {
+      "id": "rug",
+      "sprite": "rug.png",
+      "layer": "floor",
+      "x": 90,
+      "y": 157,
+      "w": 73,
+      "h": 37,
+      "unlockLevel": 1
+    },
+    {
+      "id": "sunlight",
+      "sprite": "sunlight.png",
+      "layer": "floor",
+      "x": 67,
+      "y": 128,
+      "w": 54,
+      "h": 41,
+      "unlockLevel": 1
+    },
+    {
+      "id": "toys",
+      "sprite": "toys.png",
+      "layer": "floor",
+      "x": 77,
+      "y": 177,
+      "w": 74,
+      "h": 20,
+      "unlockLevel": 1
+    },
+    {
+      "id": "kennel",
+      "sprite": "kennel.png",
+      "layer": "object",
+      "x": 96,
+      "y": 93,
+      "w": 63,
+      "h": 52,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "d": 4
+      },
+      "depthY": 133.5
+    },
+    {
+      "id": "bowls",
+      "sprite": "bowls.png",
+      "layer": "object",
+      "x": 160,
+      "y": 138,
+      "w": 43,
+      "h": 24,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 5,
+        "y": 0,
+        "w": 3,
+        "d": 2
+      },
+      "depthY": 149.5
+    },
+    {
+      "id": "dog_bed",
+      "sprite": "dog_bed.png",
+      "layer": "object",
+      "x": 52,
+      "y": 137,
+      "w": 47,
+      "h": 34,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 0,
+        "y": 6,
+        "w": 3,
+        "d": 3
+      },
+      "depthY": 158.5
+    },
+    {
+      "id": "cat_bed",
+      "sprite": "cat_bed.png",
+      "layer": "object",
+      "x": 84,
+      "y": 133,
+      "w": 27,
+      "h": 19,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 0,
+        "y": 4,
+        "w": 2,
+        "d": 2
+      },
+      "depthY": 145.75
+    },
+    {
+      "id": "basket",
+      "sprite": "basket.png",
+      "layer": "object",
+      "x": 163,
+      "y": 159,
+      "w": 19,
+      "h": 24,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 8,
+        "y": 4,
+        "w": 2,
+        "d": 1
+      },
+      "depthY": 181.0
+    },
+    {
+      "id": "hydrant",
+      "sprite": "hydrant.png",
+      "layer": "object",
+      "x": 119,
+      "y": 189,
+      "w": 7,
+      "h": 11,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 8,
+        "y": 9,
+        "w": 1,
+        "d": 1
+      },
+      "depthY": 200.5
+    },
+    {
+      "id": "plant",
+      "sprite": "plant.png",
+      "layer": "object",
+      "x": 29,
+      "y": 124,
+      "w": 26,
+      "h": 43,
+      "unlockLevel": 1,
+      "blockedTiles": {
+        "x": 0,
+        "y": 9,
+        "w": 1,
+        "d": 1
+      },
+      "depthY": 165.5
+    }
+  ],
+  "shell": "room_shell.png"
+}
