@@ -22,15 +22,28 @@
 //
 // Seasonal events (sprites/events/<id>/, listed in EVENTS) decorate the room while today is inside their
 // `active` dates: their pieces follow the same rules, show at every level, and can replace a base piece.
+//
+// Your day shows too (sprites/today/, js/roomtoday.js): the monitor glows on coding days, shoes and a bottle
+// appear after a run, a medal after a long one, a candle for a streak, a sparkle when you did both, and the
+// room dims (zzz after 9pm) while nothing is logged yet. Reduced motion keeps the props but stills them.
 
 import { drawPennant, cleanSchool } from "./art.js";
 import { FRAME_MS, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
 import { createFloor, toScreen, toWorld, tileOf, tileMiddle } from "./roomfloor.js";
 import { MAX_LEVEL } from "./xp.js";
+import { drawText, textWidth } from "./font.js";
+import { todayState, propShows, SCREEN_LOOKS, placeholderFrames } from "./roomtoday.js";
 
 const DIR = "sprites/room/";
 const EVENT_DIR = "sprites/events/";
 const EVENTS = ["halloween"];         // each has sprites/events/<id>/<id>_manifest.json
+const TODAY_DIR = "sprites/today/";
+const SCROLL_MS = 260;                // the code lines on the monitor move up one row this often
+const FLICKER_MS = 320;               // candle flame frames
+const SPARK_MS = 600;                 // one sparkle, start to finish
+const SPARK_EVERY = [2500, 5500];     // and a new one this often on a great day
+const QUIET_IDLE = 1.6;               // nothing logged yet: the idle animation plays this much slower
+const DIM = "rgba(40, 26, 52, 0.22)"; // and the room is a bit dimmer
 const W = 256, H = 256;
 const BIG = W * 3;                    // a room area at least this wide (CSS pixels) gets 3x instead of 2x
 
@@ -92,6 +105,9 @@ export function createRoom(canvas, els) {
   const touch = matchMedia("(pointer: coarse)");
   let manifest = null, imgs = null, masks = {}, sprites = null, wanted = null;
   let events = [], eventChoice = null;   // the seasonal events that loaded; eventChoice: null = by date, "none", or an id
+  let todayCfg = null, today = todayState({}, 0, 0);   // sprites/today/today_manifest.json, and what you did today
+  today.quiet = false;                // until main.js says otherwise, don't dim
+  let spark = null, nextSpark = 0, beat = -1;
   let school = DEFAULT_SCHOOL, canWalk = true, level = 1, items = [], floor = createFloor([]);
   const pops = new Map();             // pieces dropping in right now: id -> when they started
   let onAction = () => {};
@@ -107,8 +123,9 @@ export function createRoom(canvas, els) {
   // A seasonal event that doesn't load is just skipped; the room itself never waits on one.
   const eventManifest = id => loadJson(`${EVENT_DIR}${id}/${id}_manifest.json`)
     .then(m => ({ ...m, id, items: m.items.map(i => ({ ...i, src: `${EVENT_DIR}${id}/${i.sprite}` })) }));
-  const ready = Promise.all([loadJson(DIR + "room_manifest.json"), Promise.all(EVENTS.map(id => eventManifest(id).catch(e => console.warn(e.message))))])
-    .then(async ([m, seasonal]) => {
+  const todayManifest = loadJson(TODAY_DIR + "today_manifest.json").catch(e => console.warn(e.message));
+  const ready = Promise.all([loadJson(DIR + "room_manifest.json"), Promise.all(EVENTS.map(id => eventManifest(id).catch(e => console.warn(e.message)))), todayManifest])
+    .then(async ([m, seasonal, t]) => {
       manifest = { ...m, items: m.items.map(i => ({ ...i, src: DIR + i.sprite })) };
       const files = [DIR + m.shell, ...new Set(manifest.items.map(i => i.src))];
       const loaded = Object.fromEntries(await Promise.all(files.map(async f => [f, await loadImage(f)])));
@@ -118,8 +135,27 @@ export function createRoom(canvas, els) {
           events.push(e);
         } catch (err) { console.warn(err.message); }
       }
+      if (t) todayCfg = await loadToday(t, loaded);
       return loaded;
     });
+
+  // Today's props: each gets frames (image keys), from its PNG if it has one, otherwise its placeholder.
+  async function loadToday(t, loaded) {
+    const art = async thing => {
+      if (thing.sprite) {
+        const src = TODAY_DIR + thing.sprite;
+        try { loaded[src] = await loadImage(src); return [src]; } catch (e) { console.warn(e.message); }
+      }
+      return placeholderFrames(thing.art).map((c, i) => { const key = `today:${thing.art}:${i}`; loaded[key] = c; return key; });
+    };
+    const items = [];
+    for (const i of t.items || []) {
+      const frames = await art(i);
+      if (frames.length) items.push({ ...i, frames, src: frames[0], w: loaded[frames[0]].width, h: loaded[frames[0]].height });
+    }
+    const zzz = t.zzz ? { ...t.zzz, frames: await art(t.zzz) } : null;
+    return { items, screen: t.screen || null, zzz };
+  }
 
   // The events decorating the room right now.
   const eventsOn = () => events.filter(e => (eventChoice == null ? eventActive(e.active) : eventChoice === e.id));
@@ -134,6 +170,8 @@ export function createRoom(canvas, els) {
     const seasonal = eventsOn().flatMap(e => e.items);
     const replaced = new Set(seasonal.map(i => i.replaces).filter(Boolean));
     items = [PENNANT, ...manifest.items.filter(i => i.unlockLevel <= level && !replaced.has(i.id)), ...seasonal];
+    const has = id => items.some(i => i.id === id);
+    if (todayCfg) items.push(...todayCfg.items.filter(i => propShows(i, today, has)));
     floor = createFloor(items.filter(i => i.blockedTiles).map(i => i.blockedTiles));
     me.at = floor.settle(me.at);   // a new piece might stand where you are
     me.path = [];
@@ -153,7 +191,35 @@ export function createRoom(canvas, els) {
 
   function drawItem(it) {
     if (it === PENNANT) return drawPennant(onLeftWall(it.x, it.y), school, 0, 0, lettersOnLeftWall(it.x, it.y));
-    ctx.drawImage(imgs[it.src], it.x, it.y + popOffset(it.id));
+    const src = it.frames ? it.frames[reduced ? 0 : Math.floor(performance.now() / FLICKER_MS) % it.frames.length] : it.src;
+    ctx.drawImage(imgs[src], it.x, it.y + popOffset(it.id));
+    if (todayCfg && todayCfg.screen && it.id === todayCfg.screen.item && today.coded) drawScreen(todayCfg.screen);
+    if (it.label === "streak") drawTag(String(today.streak), it.x + it.w + 2, it.y + it.h - 6);   // resting beside it
+  }
+
+  // A coding day: the monitor's screen lights up with green code lines that scroll up (still with reduced
+  // motion), brighter on bigger days, with a soft glow over the bezel. The screen leans like the wall, so each
+  // column is its own span of rows, and the lines lean with it.
+  function drawScreen(sc) {
+    const look = SCREEN_LOOKS[today.level - 1], scroll = reduced ? 0 : Math.floor(performance.now() / SCROLL_MS);
+    sc.columns.forEach(([top, bottom], c) => {
+      const x = sc.x + c;
+      px(x, sc.y + top, 1, bottom - top + 1, look.bg);
+      for (let r = top + 1; r < bottom; r++) {
+        const line = r - top + scroll;
+        if (line % 2) continue;                                // a gap between lines
+        const n = Math.floor(line / 2), indent = (n * 3) % 4, len = 4 + (n * 5) % 9;
+        if (c >= indent && c < indent + len) px(x, sc.y + r, 1, 1, look.line);
+      }
+      px(x, sc.y + top - 2, 1, 2, `rgba(143, 220, 174, ${look.glow})`);
+      px(x, sc.y + bottom + 1, 1, 2, `rgba(143, 220, 174, ${look.glow})`);
+    });
+  }
+
+  // A number on a little cream tag (the streak on the candle).
+  function drawTag(text, x, y) {
+    px(x - 1, y - 1, textWidth(text) + 2, 7, "#fff1d6");
+    drawText(px, text, x, y, "#3d2e3f");
   }
 
   // A new piece falls from 12 pixels up, then bounces once. Whole pixels, so it stays crisp.
@@ -177,6 +243,33 @@ export function createRoom(canvas, els) {
     objects.filter(i => i.depthY <= feet).forEach(drawItem);
     drawMe();
     objects.filter(i => i.depthY > feet).forEach(drawItem);
+    drawDay();
+  }
+
+  // Over everything: the dim of a day with nothing logged yet, the sleepy zzz, a great day's sparkle.
+  function drawDay() {
+    if (today.quiet) {
+      ctx.save();
+      ctx.globalCompositeOperation = "source-atop";   // only over the room, not the empty space around it
+      ctx.fillStyle = DIM;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+    const feet = toScreen(me.at.x, me.at.y), fx = Math.round(feet.x), fy = Math.round(feet.y);
+    if (today.night && !me.walking && sprites && todayCfg && todayCfg.zzz && todayCfg.zzz.frames.length) {
+      const z = todayCfg.zzz, bob = reduced ? 0 : Math.floor(performance.now() / 700) % 2;
+      ctx.drawImage(imgs[z.frames[0]], fx + z.dx, fy + z.dy - bob);
+    }
+    if (spark) {
+      const t = (performance.now() - spark.at) / SPARK_MS;
+      if (t >= 1) spark = null;
+      else {
+        const size = [1, 2, 3, 1][Math.floor(t * 4)], x = fx + spark.dx, y = fy + spark.dy;
+        px(x - size, y, size * 2 + 1, 1, "#ffd76b");
+        px(x, y - size, 1, size * 2 + 1, "#ffd76b");
+        px(x, y, 1, 1, "#fff8d6");
+      }
+    }
   }
 
   // Whole pixels only: the feet land on a room pixel, whichever way it's facing.
@@ -268,7 +361,7 @@ export function createRoom(canvas, els) {
       }
     }
 
-    const ms = me.walking ? FRAME_MS.walk : FRAME_MS.idle;
+    const ms = me.walking ? FRAME_MS.walk : FRAME_MS.idle * (today.quiet ? QUIET_IDLE : 1);
     if ((me.walking || !reduced) && now - me.frameAt >= ms) {
       me.frame = (me.frame + 1) % 4;
       me.frameAt = now;
@@ -338,9 +431,23 @@ export function createRoom(canvas, els) {
     update(now, dt);
     follow(dt);
     if (pops.size) dirty = true;   // furniture dropping in
+    dayTick(now);
     if (dirty) { draw(); dirty = false; }
     present();
     updateBubble();
+  }
+
+  // Today's moving bits: a new sparkle now and then on a great day, and a redraw every 100 ms while
+  // something moves (the code lines, the candle flame, the zzz, a sparkle). Reduced motion: nothing moves.
+  function dayTick(now) {
+    if (reduced) return;
+    if (today.coded && today.ran && now >= nextSpark) {
+      if (nextSpark) spark = { at: now, dx: Math.round(Math.random() * 28 - 14), dy: -Math.round(20 + Math.random() * 22) };
+      nextSpark = now + SPARK_EVERY[0] + Math.random() * (SPARK_EVERY[1] - SPARK_EVERY[0]);
+    }
+    const moving = today.coded || today.night || spark || items.some(i => i.frames && i.frames.length > 1);
+    const b = Math.floor(now / 100);
+    if (moving && b !== beat) { beat = b; dirty = true; }
   }
 
   ready.then(loaded => {
@@ -497,5 +604,15 @@ export function createRoom(canvas, els) {
   const currentEvents = () => ready.then(() =>
     eventsOn().map(e => ({ id: e.id, name: e.name, banner: e.banner, season: seasonOf(e.active) }))).catch(() => []);
 
-  return { setPlayer, setLevel, popIn, piecesBetween, setEvent, currentEvents, standAt, onAction: fn => (onAction = fn) };
+  // What you (or the person you're peeking at) did today: see todayState() in roomtoday.js.
+  function setToday(state) {
+    const before = JSON.stringify(today);
+    today = state;
+    if (JSON.stringify(state) === before) return;
+    if (!today.coded || !today.ran) spark = null;
+    if (manifest) furnish();
+    dirty = true;
+  }
+
+  return { setPlayer, setLevel, popIn, piecesBetween, setEvent, currentEvents, setToday, standAt, onAction: fn => (onAction = fn) };
 }
