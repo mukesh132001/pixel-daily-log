@@ -15,7 +15,8 @@ import { dayXp, streakEnding, updateLedger, totalXp, progress } from "./xp.js";
 import { todayState, DEV_DAYS } from "./roomtoday.js";
 import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule } from "./characters.js";
 import { createPicker } from "./picker.js";
-import { setupLogin, settleAccount } from "./login.js";
+import { loadPetData, createAdoptPanel, roomPets, balance } from "./adopt.js";
+import { setupLogin, settleAccount, ask } from "./login.js";
 import { fillIcons, iconSpan } from "./icons.js";
 
 const $ = id => document.getElementById(id);
@@ -39,6 +40,9 @@ const DEV_EVENT = DEV && PARAMS.has("event") ? PARAMS.get("event") || "none" : n
 const DEV_TODAY = DEV && PARAMS.has("today") ? DEV_DAYS[PARAMS.get("today")] || DEV_DAYS.none : null;
 const DEV_HOUR = DEV && PARAMS.has("hour") ? Number(PARAMS.get("hour")) : null;
 const DEV_STREAK = DEV && PARAMS.has("streak") ? Number(PARAMS.get("streak")) : null;
+// ?dev&pets=all adopts every pet (and opens the pet room's door) for this visit; ?dev&pets=none starts with no pets.
+// Nothing is saved.
+const DEV_PETS = DEV && PARAMS.has("pets") ? (PARAMS.get("pets") === "none" ? "none" : "all") : null;
 const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
 const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
 // Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
@@ -61,8 +65,10 @@ const picker = createPicker({
 $("picker").addEventListener("close", () => (fromCloset = false));
 
 // The closet in your room opens the picker with every character in it.
-room.onAction(action => {
-  if (action !== "closet" || !S || !S.me) return;
+room.onAction((action, it) => {
+  if (!S) return;
+  if (action === "next_room") return goRoom(it.interact.to);   // a door
+  if (action !== "closet" || !S.me) return;
   fromCloset = true;
   picker.open(characterFor(S.me).id, EVERYONE, false, true);
   sfx.select();
@@ -77,7 +83,6 @@ if (DEV) {
     room.setLevel(devLevel);
     $("roomLevel").blur();
   });
-  $("roomDev").hidden = false;
 }
 
 // The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, eventsError, runs, strava, stravaError }
@@ -284,6 +289,7 @@ function showWorld() {
 
   // Peeking at someone else's world is read-only: no adding runs, no Strava, no picking characters.
   const peek = !S.me;
+  room.setPets([]);   // the last player's pets are gone; the pet room brings yours back when you go there
   if (!peek) checkUnlocks();
   else refreshLevel();
   dressPlayer();
@@ -301,7 +307,8 @@ function showWorld() {
   drawAvatar(S.profile && S.profile.avatar_url);
   document.title = `${name}’s pixel daily log`;
   $("roomBtnText").textContent = peek ? "Their room" : "My room";
-  $("hRoom").textContent = peek ? `${name}’s room` : "My room";
+  roomTitles = { room: peek ? `${name}’s room` : "My room", pets: peek ? `${name}’s pet room` : "My pet room" };
+  paintRoomHeader();
 
   refreshPace();
   refreshStats();
@@ -403,7 +410,7 @@ function refreshLevel() {
   $("xpText").textContent = p.next == null ? `${approx}${p.total} XP · max` : `${approx}${p.total} / ${p.next} XP`;
   $("roomXp").setAttribute("aria-label", `${S.me ? "" : "About "}level ${p.level}, ${p.total} XP` +
     (p.next == null ? ", the top level" : ` of ${p.next} for level ${p.level + 1}`) + ". How XP works");
-  $("roomXp").hidden = false;
+  $("roomXp").hidden = roomName === "pets";
   room.setLevel(devLevel || p.level);
   if (DEV && !devLevel) $("roomLevel").value = String(Math.min(5, p.level));
 }
@@ -471,6 +478,7 @@ async function openXpBox() {
     "Runs: 15 XP each, plus 5 per mile. Walks: 2 per mile. Up to 50 a day together.",
     "Streaks: plus 5 XP for each day in a row (up to 25 a day).",
     "Rest days don’t earn XP, and they never cost you any.",
+    "Pets cost XP to adopt (the first is free), but spending it never lowers your room’s level.",
     "XP counts from the day you made your profile."
   ].forEach(t => { const li = document.createElement("li"); li.textContent = t; $("xpRules").appendChild(li); });
   $("xpNextTitle").hidden = $("xpNext").hidden = p.next == null;
@@ -487,30 +495,134 @@ $("roomXp").addEventListener("click", () => { openXpBox(); sfx.select(); });
 $("xpClose").addEventListener("click", () => $("xpBox").close());
 $("xpBox").addEventListener("click", e => { if (e.target === $("xpBox")) $("xpBox").close(); });
 
-// ---------- the room screen (#room) ----------
+// ---------- pets ----------
 
-// The room is its own screen at #room, so the browser's back button works and the link can be bookmarked.
-// roomPushed: we added the #room history entry ourselves (clicked "My room"), so going back is safe.
-let roomOpen = false, roomPushed = false, mainTitle = "";
+const DOOR_STREAK = 7;   // the pet room's door opens at a 7-day streak
+let petData = null;      // sprites/pets/pets.json, loaded the first time it's needed
+let devOwner = null;     // ?dev&pets=: this visit's pets, in memory only
 
-// Show whichever screen the address asks for. The room needs a loaded world.
+// Your best streak counts, so once the door opens it stays open. A visitor can always look in.
+const bestStreak = () => (DEV_STREAK != null ? DEV_STREAK : Math.max(S.streak || 0, (S.me && S.me.log && S.me.log.best) || 0));
+const petsUnlocked = () => !!S && (!S.me || DEV_PETS != null || bestStreak() >= DOOR_STREAK);
+
+// Tell the room whether the door to the pet room is locked, and what to say if it is.
+function refreshDoor() {
+  if (!S) return;
+  room.setDoor("room", petsUnlocked() ? { locked: false }
+    : { locked: true, hint: `Locked, keep a ${DOOR_STREAK}-day streak (you’re on ${bestStreak()})` });
+}
+room.setDoor("pets", { locked: false });
+
+async function ensurePets() {
+  if (!petData) petData = await loadPetData();
+  if (DEV_PETS && !devOwner) {
+    devOwner = { pets: DEV_PETS === "all"
+      ? { have: Object.fromEntries(petData.pets.map(p => [p.id, [TODAY_K, 0]])), room: ["shiba", "orange", "corgi", "blackcat"] }
+      : { have: {}, room: [] } };
+  }
+  return petData;
+}
+
+// Whose pets: yours (your profile, or this visit's dev pets).
+const petOwner = () => (DEV_PETS ? devOwner : S && S.me);
+function savePetOwner(next) {
+  if (DEV_PETS) devOwner = next;
+  else if (S && S.me) { S.me = next; saveProfile(S.me); }
+  refreshPets();
+}
+
+// Tell the room which pets are home, and the Adopt button how much XP there is to spend.
+function refreshPets() {
+  if (!S || !petData) return;
+  const owner = petOwner();
+  room.setPets((owner ? roomPets(owner) : []).map(id => ({ id, kind: petData.pets.find(p => p.id === id).kind })));
+  $("adopt").textContent = owner ? `Adopt · ${balance(owner, xpTotal())} XP` : "Adopt";
+}
+
+const adoptPanel = createAdoptPanel({ dialog: $("adoptBox"), grid: $("adoptGrid"), info: $("adoptInfo"), close: $("adoptClose") }, {
+  owner: petOwner, save: savePetOwner, total: xpTotal, today: () => TODAY_K, ask, sound: () => sfx.select(),
+  get data() { return petData; }
+});
+$("adopt").addEventListener("click", async () => {
+  if (!petOwner()) return;
+  await ensurePets();
+  adoptPanel.open();
+  sfx.select();
+});
+
+// ---------- the room screens (#room and #pets) ----------
+
+// Each room is its own screen, so the browser's back button works and the link can be bookmarked.
+// roomPushed: we added the history entry ourselves (clicked "My room"), so going back is safe.
+// A door swaps #room and #pets in place, so Back always goes to the main page.
+const HASHES = { "#room": "room", "#pets": "pets" };
+let roomOpen = false, roomName = null, roomPushed = false, mainTitle = "";
+let roomTitles = { room: "My room", pets: "My pet room" };
+
+// The header changes with the room: the XP bar and character picker are your room's, Adopt is the pet room's.
+function paintRoomHeader() {
+  const name = roomName || "room", peek = !S || !S.me;
+  $("hRoom").textContent = roomTitles[name];
+  $("roomXp").hidden = name === "pets";
+  $("pick").hidden = peek || name === "pets";
+  $("adopt").hidden = !petOwner() || name !== "pets";
+  $("roomDev").hidden = !DEV || name === "pets";
+  if (roomOpen) document.title = `${roomTitles[name]} · Pixel daily log`;
+}
+
+// Show whichever screen the address asks for. A room needs a loaded world, and the pet room needs its door open.
 function route() {
-  const want = location.hash === "#room" && !!S;
-  if (want === roomOpen) return;
-  roomOpen = want;
-  document.body.classList.toggle("is-room", want);
-  $("roomScreen").hidden = !want;
-  if (want) {
-    mainTitle = document.title;
-    document.title = `${$("hRoom").textContent} · Pixel daily log`;
-    window.scrollTo(0, 0);
-    $("hRoom").focus();
-    celebrate();
-    // Opened while the page is still loading (a #room link): the browser resets focus when loading ends.
-    if (document.readyState !== "complete") addEventListener("load", () => roomOpen && $("hRoom").focus(), { once: true });
-  } else {
+  let name = S ? HASHES[location.hash] || null : null;
+  if (name === "pets" && !petsUnlocked()) { history.replaceState(null, "", "#room"); name = "room"; }
+  if (name === (roomOpen ? roomName : null)) return Promise.resolve();
+  const opening = !roomOpen && !!name;
+  roomOpen = !!name;
+  roomName = name;
+  document.body.classList.toggle("is-room", roomOpen);
+  $("roomScreen").hidden = !roomOpen;
+  if (!name) {
     document.title = mainTitle;
     if (S) $("roomBtn").focus();
+    return Promise.resolve();
+  }
+  if (opening) {
+    mainTitle = document.title;
+    window.scrollTo(0, 0);
+    $("hRoom").focus();
+    // Opened while the page is still loading (a #room link): the browser resets focus when loading ends.
+    if (document.readyState !== "complete") addEventListener("load", () => roomOpen && $("hRoom").focus(), { once: true });
+  }
+  paintRoomHeader();
+  return enterRoom(name);
+}
+
+async function enterRoom(name) {
+  if (name === "pets") { await ensurePets(); refreshPets(); paintRoomHeader(); }   // the Adopt button needs your pets
+  await room.enter(name);
+  if (name === "room") celebrate();
+}
+
+// Through a door: a pixel wipe sweeps across (no wipe with reduced motion), the room swaps behind it, then it sweeps away.
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const WIPE_MS = 280;
+let wiping = false;
+async function goRoom(name) {
+  if (wiping || !S || !HASHES["#" + name] || name === roomName) return;
+  if (name === "pets" && !petsUnlocked()) return;
+  wiping = true;
+  const wipe = $("roomWipe");
+  const sweep = (from, to) => Promise.race([
+    wipe.animate([{ clipPath: from }, { clipPath: to }], { duration: WIPE_MS, easing: "steps(8)", fill: "forwards" }).finished.catch(() => {}),
+    new Promise(done => setTimeout(done, WIPE_MS * 2))
+  ]);
+  try {
+    if (!REDUCED) { wipe.hidden = false; await sweep("inset(0 100% 0 0)", "inset(0 0 0 0)"); }
+    history.replaceState(null, "", "#" + name);
+    await route();
+    if (!REDUCED) await sweep("inset(0 0 0 0)", "inset(0 0 0 100%)");
+  } finally {
+    wipe.hidden = true;
+    wiping = false;
   }
 }
 
@@ -649,6 +761,7 @@ function refreshStats() {
   if (S.yearTotal != null) $("stYear").textContent = S.yearTotal;
   $("stMiles").textContent = totalMiles(infos.flatMap(x => x.runs)).toFixed(1);
   refreshToday();
+  refreshDoor();
 }
 
 // ---------- your day in the room ----------

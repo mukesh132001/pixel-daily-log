@@ -87,9 +87,12 @@
       </button>
       <label class="room-dev" id="roomDev" hidden>Dev level <select id="roomLevel"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
       <button class="btn px" id="pick" type="button">Pick character<span class="newtag" id="pickNew" hidden>New!</span></button>
+      <button class="btn px" id="adopt" type="button" hidden>Adopt</button>
     </div>
     <div class="room-frame">
       <canvas id="room" role="img" aria-label="Your pixel room: a bed, a closet, a desk with a computer, a chair, a window, a door and your school pennant, with your character in it. Walk with the arrow keys or W A S D, or click the floor. Stand at the closet and press E to change your character."></canvas>
+      <!-- A pixel wipe across the room when you go through a door (main.js) -->
+      <div class="room-wipe" id="roomWipe" hidden aria-hidden="true"></div>
       <!-- "Level up!" after reaching a new level, or a seasonal hello like "Happy Halloween!" (main.js) -->
       <div class="room-banner px" id="roomBanner" role="status" hidden>
         <b class="room-banner-title" id="bannerTitle"></b>
@@ -121,6 +124,16 @@
       <ul class="xp-rules" id="xpRules"></ul>
       <h3 id="xpNextTitle">Next level</h3>
       <p id="xpNext"></p>
+    </div>
+  </dialog>
+
+  <!-- Adopt a pet: the first one is free, the rest cost XP (adopt.js) -->
+  <dialog class="picker" id="adoptBox" aria-labelledby="adoptTitle">
+    <div class="picker-box px adopt-box">
+      <button class="x pick-close" id="adoptClose" type="button" aria-label="Close">×</button>
+      <h2 id="adoptTitle">Adopt a pet</h2>
+      <p class="small" id="adoptInfo" role="status"></p>
+      <div class="adopt-grid" id="adoptGrid"></div>
     </div>
   </dialog>
 
