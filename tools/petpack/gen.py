@@ -74,25 +74,46 @@ C_TAILS={
  'fluffy':["..KKK",".KBBBK","KBBBBK","KBBBK.",".KBBK.",".KBK..","KK...."],
  'fluffy2':["KKK...","KBBK..","KBBBK.",".KBBBK","..KBBK",".KBK..","KK...."],
 }
-# ---------- SLEEP: curled up, ears and tail showing ----------
-SLEEP=[
-"..KK..KK.............",
-".KBIKKBIK............",
-"KBBBBBBBBKKKKKK......",
-"KBBBBBBBBBBBBBBKK....",
-"KBBBBBBBBBBBBBBBBK...",
-"KBKKBBKKBBBBBBBBBBK..",
-"KBBBBBBBBBBBBBBBBBK..",
-"KBMMNMMKKKKKKKKKKKKK.",
-".KMMMMMKsssssssssssMK",
-"..KKKKKKKKKKKKKKKKKK.",
-]   # eyes shut, ears up; the tail lies along the bottom and sticks out past the body with a pale tip
-def sleep_floppy(rows):
-    g=[list(r.ljust(21,'.')) for r in rows]
-    for y in (0,1):
-        for x in range(9): g[y][x]='.'
-    g[1]=list(".KKKKKKK."+''.join(g[1][9:]))        # a rounded head instead of ear tips
-    for y,x,c in [(2,1,'F'),(2,2,'F'),(3,0,'K'),(3,1,'F'),(3,2,'F'),(3,3,'F'),(4,1,'F'),(4,2,'F'),(4,3,'F'),(5,0,'K'),(5,2,'F'),(5,3,'K')]: g[y][x]=c
+# ---------- SLEEP: a round curl, 15 wide and 10 tall (the top row is empty, room for the breathing rise) ----------
+# Head tucked low at the front, the back rising behind it, the tail lying across the front and curling up the back
+# with a pale tip. Built from two ovals so the outline is round, then the ears, shut eyes and muzzle are stamped on.
+SLEEP_W,SLEEP_H=15,10
+def _oval(g,cx,cy,rx,ry):
+    for y in range(len(g)):
+        for x in range(len(g[0])):
+            if ((x-cx)/rx)**2+((y-cy)/ry)**2<=1: g[y][x]='B'
+def sleep_rows(floppy=False,rise=False):
+    g=[['.']*SLEEP_W for _ in range(SLEEP_H)]
+    _oval(g,8.0,5.0,5.4,3.4); _oval(g,3.6,6.6,2.9,2.3)               # the back, and the head in front of it
+    if not floppy:                                                    # two pointed ears on the head
+        for x,y,c in [(1,3,'B'),(1,4,'I'),(2,4,'B'),(4,3,'B'),(4,4,'I'),(5,4,'B')]: g[y][x]=c
+    for y in range(SLEEP_H):                                          # round outline
+        for x in range(SLEEP_W):
+            if g[y][x]=='.' and any(0<=x+dx<SLEEP_W and 0<=y+dy<SLEEP_H and g[y+dy][x+dx] in 'BI' for dx,dy in((1,0),(-1,0),(0,1),(0,-1))): g[y][x]='K'
+    for x in (1,2,5,6): g[6][x]='K'                                   # eyes shut: two dashes
+    for x in (2,3,4,5): g[7][x]='M'                                   # muzzle
+    g[7][3]='N'                                                       # nose
+    for x in (2,3,4,5): g[8][x]='M'                                   # chin
+    for y in (3,4,5):                                                 # a short neck line above the eyes: the head rests in front of the back
+        if g[y][7]=='B': g[y][7]='K'
+    for x in range(8,13):                                             # the tail lies across the front of the body
+        if g[7][x]=='B': g[7][x]='K'
+        if g[8][x]=='B': g[8][x]='s'
+    for x,y in [(13,6),(13,7),(12,6)]:                                # and curls up the back
+        if g[y][x]=='B': g[y][x]='s'
+    g[5][13]='M'; g[6][13]='M'                                        # the pale tip
+    if floppy:                                                        # a dark ear flap hangs over the head instead of tips
+        for x,y in [(3,4),(4,4),(5,4),(3,5),(4,5),(4,6)]: g[y][x]='F'
+        for y in range(SLEEP_H):
+            for x in range(SLEEP_W):
+                if g[y][x]=='.' and any(0<=x+dx<SLEEP_W and 0<=y+dy<SLEEP_H and g[y+dy][x+dx]=='F' for dx,dy in((1,0),(-1,0),(0,1),(0,-1))): g[y][x]='K'
+    if rise:                                                          # breathing in: the back lifts one pixel
+        new=[r[:] for r in g]
+        for x in range(8,SLEEP_W):
+            top=next((y for y in range(SLEEP_H) if g[y][x]!='.'),None)
+            if top is None or top==0: continue
+            for y in range(top-1,6): new[y][x]=g[y+1][x]
+        g=new
     return [''.join(r) for r in g]
 # ---------- COMPOSE ----------
 def grid(): return [['.']*FW for _ in range(FH)]
@@ -104,15 +125,9 @@ def pose(spec,frame):
     """frame: sitA sitB blink happy eatA eatB sleepA sleepB"""
     g=grid(); cat=spec['kind']=='cat'
     if frame.startswith('sleep'):
-        rows=SLEEP if (cat or spec['ears']!='floppy') else sleep_floppy(SLEEP)
-        rows=[r.ljust(21,'.') for r in rows]
-        if frame=='sleepB':   # breathe: the body rises one pixel
-            gg=[list(r) for r in rows]; new=[r[:] for r in gg]
-            for y in range(len(gg)-2):
-                for x in range(9,19): new[y][x]=gg[y+1][x]   # (not the tail: it stays on the floor)
-            rows=[''.join(r) for r in new]
+        rows=sleep_rows(floppy=(not cat and spec['ears']=='floppy'),rise=(frame=='sleepB'))
         rows=apply_marks(spec,'sleep',rows)
-        put(g,rows,0,FH-len(rows)-1)
+        put(g,rows,(FW-SLEEP_W)//2,FH-len(rows)-1)
         return g
     ears=C_EARS if cat else D_EARS[spec['ears']]
     face=C_FACE if cat else D_FACE
@@ -177,7 +192,7 @@ def m_spots(g,part):    # Dalmatian: three clear 2x2 spots (head, flank, side), 
     f=FY(g,part)
     if part=='head': box(g,8,f,2,2,'BM','X')
     if part=='body': box(g,1,1,2,2,'BM','X'); box(g,8,2,2,2,'BM','X')
-    if part=='sleep': box(g,12,3,2,2,'B','X'); box(g,15,5,2,2,'B','X'); box(g,4,2,2,2,'B','X')
+    if part=='sleep': box(g,9,3,2,2,'B','X'); box(g,11,5,2,2,'B','X')
 def m_pug(g,part):
     m_points(g,part)
     if part=='head': g[len(g)-2][6]='T'          # the pug's tongue is always out
@@ -197,7 +212,7 @@ def m_beagle(g,part):    # dark saddle, white blaze and tail tip
     if part=='body': box(g,0,1,11,3,'B','X')
     if part=='head': box(g,5,f+1,3,4,'B','M')
     if part=='tail': box(g,0,0,5,1,'B','M')
-    if part=='sleep': box(g,11,0,7,5,'B','X')
+    if part=='sleep': box(g,8,2,6,4,'B','X')
 def m_points(g,part):    # pug and siamese: a dark face mask, ears, paws and tail
     for x,y,c in each(g):
         if part=='head' and c in 'IM' and y>=0: g[y][x]='X' if c=='M' else 'Z'
@@ -217,7 +232,7 @@ def m_tabby(g,part):
         if c!='B': continue
         if part=='body' and y%2==1 and (x<=1 or x>=9): g[y][x]='X'
         elif part=='tail' and y%2==0: g[y][x]='X'
-        elif part=='sleep' and x>=11 and y%2==0: g[y][x]='X'
+        elif part=='sleep' and x>=8 and y%2==0: g[y][x]='X'
 def m_calico(g,part):
     f=FY(g,part)
     for x,y,c in each(g):
@@ -230,8 +245,8 @@ def m_calico(g,part):
             elif x>=8 and y<=2: g[y][x]='X'
         elif part=='tail': g[y][x]='X' if y<3 else 'Z'
         elif part=='sleep':
-            if x>=13 and y<=4: g[y][x]='X'
-            elif 7<=x<=12 and y>=5: g[y][x]='Z'
+            if x>=10 and y<=4: g[y][x]='X'
+            elif 8<=x<=9 and y>=5: g[y][x]='Z'
 def m_tux(g,part):
     if part=='body': box(g,0,0,11,7,'P','M')
 def m_pixel(g,part):
@@ -249,4 +264,4 @@ def m_ragdoll(g,part):
             if c=='I': g[y][x]='Z'
             elif c=='B' and y-f<=4 and (y-f<=1 or x<=3 or x>=9): g[y][x]='X'
         elif part=='tail' and c=='B': g[y][x]='X'
-        elif part=='sleep' and c=='B' and y<=3 and x<=8: g[y][x]='X'
+        elif part=='sleep' and c=='B' and y<=6 and x<=6: g[y][x]='X'
