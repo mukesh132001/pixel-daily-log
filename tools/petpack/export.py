@@ -15,7 +15,7 @@ for r,p in enumerate(PETS):
     ims[0].save(f"out/PetPack/gifs/{p['id']}.gif",save_all=True,append_images=ims[1:],duration=220,loop=0,disposal=2)
     meta.append(dict(id=p['id'],name=p['name'],kind=p['kind'],rarity=p['rarity'],cost=COST[p['rarity']],row=r))
 atlas.save('out/PetPack/pets_atlas.png')
-json.dump(dict(frameWidth=FW,frameHeight=FH,frames=FRAMES,
+json.dump(dict(frameWidth=FW,frameHeight=FH,feetX=FEET[0],feetY=FEET[1],frames=FRAMES,
   rarityCost=COST,pets=meta),open('out/PetPack/pets.json','w'),indent=2)
 buf=io.BytesIO(); atlas.save(buf,'PNG'); open('atlas_b64.txt','w').write(base64.b64encode(buf.getvalue()).decode())
 print(atlas.size, len(meta))

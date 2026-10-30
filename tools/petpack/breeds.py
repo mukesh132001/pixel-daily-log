@@ -34,7 +34,7 @@ dict(id='cosmic',name='Cosmic Cat',kind='cat',rarity='legendary',tail='fluffy',m
 ]
 FRAMES=['sitA','sitB','blink','happy','eatA','eatB','sleepA','sleepB']
 def render(spec,frame,sc=1):
-    g=pose(spec,frame); pal={k:hx(v) for k,v in spec['pal'].items()}
+    g=sit_on_feet(shrink_grid(pose(spec,frame))); pal={k:hx(v) for k,v in spec['pal'].items()}
     im=Image.new('RGBA',(FW,FH),(0,0,0,0))
     for y in range(FH):
         for x in range(FW):

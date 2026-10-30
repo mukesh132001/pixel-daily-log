@@ -1,7 +1,11 @@
 from PIL import Image
 import random
 def hx(h): h=h.lstrip('#'); return tuple(int(h[i:i+2],16) for i in (0,2,4))
-FW,FH=28,30
+BW,BH=28,30   # the pets are drawn by hand on this canvas
+# ...then shrunk for the game, so they stand roughly knee-to-waist next to Leo (he is 32x40).
+SHRINK=0.7
+FW,FH=round(BW*SHRINK),round(BH*SHRINK)   # the frame the game uses: 20x21
+FEET=(FW//2,FH-2)                         # the middle of the feet, and the shared bottom row, in that frame
 def mir(rows): return [r+r[::-1] for r in rows]
 # ---------- DOG PARTS (region letters) ----------
 D_EARS={
@@ -112,11 +116,11 @@ def sleep_floppy(rows):
     for (x,y,c) in [(0,3,'K'),(1,3,'F'),(2,3,'F'),(0,4,'K'),(1,4,'F'),(2,4,'F'),(0,5,'K'),(1,5,'F'),(2,5,'K')]: g[y][x]=c
     return [''.join(r) for r in g]
 # ---------- COMPOSE ----------
-def grid(): return [['.']*FW for _ in range(FH)]
+def grid(): return [['.']*BW for _ in range(BH)]
 def put(g,art,ox,oy):
     for j,r in enumerate(art):
         for i,ch in enumerate(r):
-            if ch!='.' and 0<=oy+j<FH and 0<=ox+i<FW: g[oy+j][ox+i]=ch
+            if ch!='.' and 0<=oy+j<BH and 0<=ox+i<BW: g[oy+j][ox+i]=ch
 def pose(spec,frame):
     """frame: sitA sitB blink happy eatA eatB sleepA sleepB"""
     g=grid(); cat=spec['kind']=='cat'
@@ -129,7 +133,7 @@ def pose(spec,frame):
                 for x in range(12,21): new[y][x]=gg[y+1][x]
             rows=[''.join(r) for r in new]
         rows=apply_marks(spec,'sleep',rows)
-        put(g,rows,3,FH-len(rows)-1)
+        put(g,rows,3,BH-len(rows)-1)
         return g
     ears=C_EARS if cat else D_EARS[spec['ears']]
     face=C_FACE if cat else D_FACE
@@ -157,7 +161,7 @@ def pose(spec,frame):
     tails=C_TAILS if cat else D_TAILS
     tk=spec['tail']+('2' if frame in('sitB','happy','eatB') and spec['tail']+'2' in tails else '')
     tail=apply_marks(spec,'tail',tails[tk])
-    hh=len(head); by=FH-1-len(body)
+    hh=len(head); by=BH-1-len(body)
     hy=by-hh+1
     bob={'sitB':1,'happy':-1,'eatA':3,'eatB':4}.get(frame,0)
     put(g,tail,20,by+3-(len(tail)-6))
@@ -173,9 +177,9 @@ def pose(spec,frame):
     if frame=='happy':
         put(g,[".H.H.","HHHHH",".HHH.","..H.."],20,max(0,hy-2))
     if frame.startswith('eat'):
-        put(g,["KKKKKKKKKKKK","KGGGGGGGGGGK","KLLLLLLLLLLK",".KLLLLLLLLK.","..KKKKKKKK.."],8,FH-6)
+        put(g,["KKKKKKKKKKKK","KGGGGGGGGGGK","KLLLLLLLLLLK",".KLLLLLLLLK.","..KKKKKKKK.."],8,BH-6)
         if frame=='eatB':
-            for x in (10,13,16,18): g[FH-6][x]='G'
+            for x in (10,13,16,18): g[BH-6][x]='G'
     return g
 # ---------- MARKINGS ----------
 def apply_marks(spec,part,rows):
@@ -264,3 +268,52 @@ def m_ragdoll(g,part):
             if part=='head' and c=='B' and (y<6 or x in(1,2,3,4,5,12,13,14,15,16)) and y<10: g[y][x]='X'
             if part=='tail' and c=='B': g[y][x]='X'
             if part=='sleep' and c=='B' and y<6 and x<11: g[y][x]='X'
+
+# ---------- SHRINK ----------
+# Pixel art can't be scaled by a plain resize (lines turn blurry or vanish). So every pixel of the smaller frame looks at
+# the bigger pixels it covers and takes the color that covers most of it, with two nudges that keep the drawing alive:
+# an outline wins even when it covers only about a third of the pixel, and small features (eyes, nose, tongue,
+# collar, heart) count extra so they don't get swallowed by the fur around them.
+OUTLINE='K'
+FEATURES={'E':1.7,'U':1.7,'N':1.7,'W':1.3,'T':1.5,'Q':1.4,'H':1.5,'Y':1.4,'C':1.2,'c':1.2,'w':1.2,'G':1.1,'L':1.1}
+KEEP={'K':0.36,'E':0.28,'U':0.28,'N':0.28}   # these win a pixel at this much coverage: the outline, eyes and nose
+OUTLINE_AT=KEEP[OUTLINE]
+OPAQUE_AT=0.42     # anything covering less than this of a pixel is left empty
+def shrink_grid(g):
+    sx,sy=BW/FW,BH/FH; area=sx*sy
+    out=[['.']*FW for _ in range(FH)]
+    for ty in range(FH):
+        y0,y1=ty*sy,(ty+1)*sy
+        for tx in range(FW):
+            x0,x1=tx*sx,(tx+1)*sx
+            w={}
+            for yy in range(int(y0),min(BH,int(y1)+1)):
+                oy=min(y1,yy+1)-max(y0,yy)
+                if oy<=0: continue
+                for xx in range(int(x0),min(BW,int(x1)+1)):
+                    ox=min(x1,xx+1)-max(x0,xx)
+                    if ox<=0: continue
+                    c=g[yy][xx]; w[c]=w.get(c,0)+ox*oy
+            solid=sum(v for c,v in w.items() if c!='.')/area
+            if solid<OPAQUE_AT: continue
+            kept={c:w.get(c,0)/area for c,need in KEEP.items() if w.get(c,0)/area>=need}
+            if kept: out[ty][tx]=max(kept,key=kept.get); continue
+            fill={c:v*FEATURES.get(c,1) for c,v in w.items() if c not in('.',OUTLINE)}
+            out[ty][tx]=max(fill,key=fill.get) if fill else OUTLINE
+    # an outline should stay one pixel thick: where four outline pixels make a block, drop one corner
+    for y in range(FH-1):
+        for x in range(FW-1):
+            if all(out[y+j][x+i]==OUTLINE for j in (0,1) for i in (0,1)):
+                out[y][x+1 if x+1<FW and out[y+1][x+1]==OUTLINE else x]='.'
+    return out
+
+def sit_on_feet(g):
+    """Slide the finished frame up or down so its lowest pixel is on the shared feet row (the same for every pet and frame)."""
+    rows=[y for y in range(FH) if any(c!='.' for c in g[y])]
+    if not rows: return g
+    d=FEET[1]-max(rows)
+    if d==0: return g
+    out=[['.']*FW for _ in range(FH)]
+    for y in range(FH):
+        if 0<=y-d<FH: out[y]=g[y-d][:]
+    return out
