@@ -12,6 +12,7 @@ import * as strava from "./strava.js";
 import { createScene } from "./scene.js";
 import { createRoom } from "./room.js";
 import { dayXp, streakEnding, updateLedger, totalXp, progress } from "./xp.js";
+import { todayState, DEV_DAYS } from "./roomtoday.js";
 import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule } from "./characters.js";
 import { createPicker } from "./picker.js";
 import { setupLogin, settleAccount } from "./login.js";
@@ -33,6 +34,11 @@ const DEV_XP = DEV && PARAMS.has("xp") ? Math.max(0, Number(PARAMS.get("xp")) ||
 let devLevel = DEV ? Math.max(0, Math.min(5, Number(PARAMS.get("level")) || 0)) || null : null;   // the dev picker's level
 // ?dev&event=halloween shows that event's decorations whatever the date; ?dev&event=none hides them all.
 const DEV_EVENT = DEV && PARAMS.has("event") ? PARAMS.get("event") || "none" : null;
+// ?dev&today=coded|ran|both|none pretends that's your day in the room; &hour=22 pretends it's 10pm (for the zzz),
+// &streak=7 sets the streak (for the candle; "both" has 5 unless you say otherwise).
+const DEV_TODAY = DEV && PARAMS.has("today") ? DEV_DAYS[PARAMS.get("today")] || DEV_DAYS.none : null;
+const DEV_HOUR = DEV && PARAMS.has("hour") ? Number(PARAMS.get("hour")) : null;
+const DEV_STREAK = DEV && PARAMS.has("streak") ? Number(PARAMS.get("streak")) : null;
 const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
 const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
 // Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
@@ -642,7 +648,20 @@ function refreshStats() {
   $("stYearBox").hidden = S.yearTotal == null;
   if (S.yearTotal != null) $("stYear").textContent = S.yearTotal;
   $("stMiles").textContent = totalMiles(infos.flatMap(x => x.runs)).toFixed(1);
+  refreshToday();
 }
+
+// ---------- your day in the room ----------
+
+// The room shows what you (or whoever you're peeking at) did today: the same data as the main page.
+function refreshToday() {
+  if (!S) return;
+  const i = DAYS.findIndex(d => key(d) === TODAY_K), x = i >= 0 ? info(i) : null;
+  const day = DEV_TODAY || (x ? { count: x.count, level: x.level, pushed: x.ev.some(e => e.type === "PushEvent"), runs: x.runs } : {});
+  const streak = DEV_STREAK != null ? DEV_STREAK : DEV_TODAY ? (DEV_TODAY === DEV_DAYS.both ? 5 : 0) : S.streak || 0;
+  room.setToday(todayState(day, streak, DEV_HOUR != null ? DEV_HOUR : new Date().getHours()));
+}
+setInterval(refreshToday, 60000);   // so the zzz turns up at 9pm without a reload
 
 // ---------- long lists fold up ----------
 
