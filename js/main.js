@@ -7,7 +7,7 @@ import {
   GH_COLORS, isValidUsername, fetchProfile, fetchContributions, fetchEvents,
   levelsFromEvents, fetchCommitMessage, groupEvents, savedSince, clearSaved
 } from "./github.js";
-import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
+import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles, runMiles, kindOf, dayKind, describe, sportLabel, KIND_ICON } from "./runs.js";
 import * as strava from "./strava.js";
 import * as lastfm from "./lastfm.js";
 import { createScene } from "./scene.js";
@@ -253,10 +253,10 @@ function info(i) {
 
   let mode = "rest";
   if (future) mode = "future";
-  else if (runs.some(r => r.type !== "walk")) mode = "run";
-  else if (runs.length) mode = "walk";
+  else if (runs.some(isRun)) mode = "run";
+  else if (runs.some(r => kindOf(r) === "walk")) mode = "walk";
   else if (c.count > 0 || realActivity) mode = "code";
-  else if (today) mode = "today";
+  else if (today || runs.length) mode = "today";   // a ride or workout on its own: the character stands by
 
   // When did it happen? Strava start time first, otherwise the latest GitHub activity.
   let hour = null;
@@ -298,11 +298,11 @@ function energy(x) {
 function summary(x) {
   if (x.future) return "This day hasn’t happened yet.";
   const parts = [];
-  x.runs.forEach(r => parts.push(`${r.name || "Run"} ${r.mi.toFixed(1)} mi`));
+  x.runs.forEach(r => parts.push(describe(r)));
   if (x.count) parts.push(`${x.count} contribution${x.count === 1 ? "" : "s"} on GitHub`);
   else if (x.ev.some(e => e.type !== "WatchEvent")) parts.push("some GitHub activity");
   if (!parts.length) return x.today ? "Nothing yet today. Go make some pixels." : "Rest day. Recovery counts too.";
-  return parts.join(", ") + ".";
+  return parts.join("; ") + ".";
 }
 
 // ---------- showing the world ----------
@@ -364,10 +364,10 @@ function dressPlayer() {
 // ---------- unlocking characters ----------
 
 // Adds the days you logged to your profile, then unlocks any character whose rule you now meet.
-// A day counts if it has a commit (GitHub contributions or a push) or a run. Unlocks are never taken away.
+// A day counts if it has a commit (GitHub contributions or a push) or any logged activity (a workout counts too). Unlocks are never taken away.
 function checkUnlocks() {
   const infos = DAYS.map((_, i) => info(i)).filter(x => !x.future);
-  const logged = infos.filter(x => x.count > 0 || x.ev.some(e => e.type === "PushEvent") || x.runs.some(isRun));
+  const logged = infos.filter(x => x.count > 0 || x.ev.some(e => e.type === "PushEvent") || x.runs.length > 0);
   let me = recordDays(S.me, logged.map(x => x.k));
 
   // The public feed has push times, not each commit's time, so a push counts as the commit.
@@ -410,7 +410,7 @@ const createdKey = me => { const d = new Date(me.createdAt); return isNaN(d) ? T
 // earlier: active days before the 4 weeks (from your saved log), so a long streak keeps its bonus.
 function xpDays(infos, from, earlier) {
   const days = infos.filter(x => x.k >= from);
-  const active = new Set([...earlier, ...days.filter(x => dayXp({ contributions: x.count, runs: x.runs }) > 0).map(x => x.k)]);
+  const active = new Set([...earlier, ...days.filter(x => x.runs.length || dayXp({ contributions: x.count, runs: x.runs }) > 0).map(x => x.k)]);
   return days.map(x => ({ k: x.k, xp: dayXp({ contributions: x.count, runs: x.runs, streak: streakEnding(x.k, active, from) }) }));
 }
 
@@ -740,7 +740,8 @@ function refreshTiles() {
     const icons = document.createElement("span");
     icons.className = "icons";
     if (x.level || x.ev.some(ev => ev.type !== "WatchEvent")) icons.appendChild(iconSpan("laptop"));
-    if (x.runs.length) icons.appendChild(iconSpan("shoe"));
+    const kind = dayKind(x.runs);
+    if (kind) icons.appendChild(iconSpan(KIND_ICON[kind]));
     if (x.plays) icons.appendChild(iconSpan("note"));
     b.append(num, icons);
   });
@@ -751,7 +752,12 @@ function tileTip(x) {
   const date = fmt(x.d);
   if (x.future) return date + ", not yet";
   const bits = [];
-  if (x.runs.length) bits.push(`${x.runs.length} ${x.runs.length === 1 ? "activity" : "activities"}, ${totalMiles(x.runs).toFixed(1)} mi`);
+  const moved = x.runs.filter(r => kindOf(r) !== "workout"), worked = x.runs.filter(r => kindOf(r) === "workout");
+  if (moved.length) bits.push(`${moved.length} ${moved.length === 1 ? "activity" : "activities"}, ${totalMiles(moved).toFixed(1)} mi`);
+  if (worked.length) {
+    const min = Math.round(worked.reduce((n, r) => n + (r.min || 0), 0));
+    bits.push(`${worked.length} workout${worked.length === 1 ? "" : "s"}${min ? `, ${min} min` : ""}`);
+  }
   if (x.count) bits.push(`${x.count} contribution${x.count === 1 ? "" : "s"}`);
   if (x.plays) bits.push(`${x.plays} song${x.plays === 1 ? "" : "s"} played`);
   if (x.pr) bits.push("best pace!");
@@ -788,7 +794,7 @@ function refreshStats() {
   $("stContrib").textContent = infos.reduce((s, x) => s + x.count, 0);
   $("stYearBox").hidden = S.yearTotal == null;
   if (S.yearTotal != null) $("stYear").textContent = S.yearTotal;
-  $("stMiles").textContent = totalMiles(infos.flatMap(x => x.runs)).toFixed(1);
+  $("stMiles").textContent = runMiles(infos.flatMap(x => x.runs)).toFixed(1);
   refreshToday();
   refreshDoor();
 }
@@ -1088,7 +1094,7 @@ function renderRuns(x) {
   if (!x.runs.length) {
     const li = document.createElement("li");
     li.className = "muted";
-    li.textContent = x.future ? "This day hasn’t happened yet." : "No runs logged this day.";
+    li.textContent = x.future ? "This day hasn’t happened yet." : "No activity logged this day.";
     ul.appendChild(li);
   }
 
@@ -1103,27 +1109,28 @@ function renderRuns(x) {
   foldList(ul, x.k);
 }
 
-// One line in the runs list: icon | name and source | distance and pace | delete.
+// One line in the runs list: icon | name and source | distance (or minutes, for a workout) and pace | delete.
 // Strava activities can't be deleted here, hand-logged ones can.
 function runRow(r, onDelete) {
   const li = document.createElement("li");
   li.className = "runrow";
-  li.appendChild(iconSpan("shoe"));
+  const kind = kindOf(r);
+  li.appendChild(iconSpan(KIND_ICON[kind]));
 
   const main = document.createElement("div");
   const name = document.createElement("div");
   name.className = "rname";
-  name.textContent = r.name || "Run";
+  name.textContent = r.name || (kind === "workout" ? sportLabel(r.sport) || "Workout" : "Run");
   const sub = document.createElement("div");
   sub.className = "rsub";
-  sub.textContent = r.source === "strava" ? `Strava, ${r.sport || "Run"}` : "Added by hand";
+  sub.textContent = r.source === "strava" ? `Strava, ${sportLabel(r.sport) || "Run"}` : "Added by hand";
   main.append(name, sub);
 
   const nums = document.createElement("div");
   nums.className = "rnums";
   const dist = document.createElement("div");
   dist.className = "rdist";
-  dist.textContent = `${r.mi.toFixed(2)} mi`;
+  dist.textContent = kind === "workout" ? (r.min >= 1 ? `${Math.round(r.min)} min` : "") : `${r.mi.toFixed(2)} mi`;
   const p = document.createElement("div");
   p.className = "rpace";
   p.textContent = isRun(r) && pace(r) ? pace(r) : "";
@@ -1141,7 +1148,7 @@ function runRow(r, onDelete) {
     del.className = "x";
     del.type = "button";
     del.textContent = "×";
-    del.setAttribute("aria-label", "Remove " + (r.name || "run"));
+    del.setAttribute("aria-label", "Remove " + (r.name || "activity"));
     del.addEventListener("click", onDelete);
     li.appendChild(del);
   } else {
@@ -1214,7 +1221,7 @@ function refreshBars() {
   const el = $("bars");
   el.textContent = "";
   for (let w = 0; w < 4; w++) {
-    const mi = totalMiles(DAYS.slice(w * 7, w * 7 + 7).flatMap((d, j) => info(w * 7 + j).runs));
+    const mi = runMiles(DAYS.slice(w * 7, w * 7 + 7).flatMap((d, j) => info(w * 7 + j).runs));
     const row = document.createElement("div");
     row.className = "bar" + (Math.floor(sel / 7) === w ? " cur" : "");
     const l = document.createElement("span");
