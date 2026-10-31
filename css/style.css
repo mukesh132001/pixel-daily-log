@@ -240,6 +240,28 @@ button,input{font:inherit;color:inherit}
 .picker-box h2{font-size:clamp(1.6rem,5vw,2.2rem)}
 .pick-close{position:absolute;top:6px;right:6px;font-size:1.6rem}
 
+/* ---------- the monitor on the desk: your latest GitHub work ---------- */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.monitor{position:relative;display:flex;flex-direction:column;align-items:center;width:min(560px,calc(100vw - 48px))}
+.mon-bezel{align-self:stretch;background:#2d2635;padding:16px 14px 14px}
+.mon-bezel h2{color:#f6e9d6;font-size:clamp(1.4rem,4.5vw,1.9rem);margin:0 34px 10px 2px}
+.mon-screen{background:#0f2a1c;color:#bff0cf;padding:12px 14px;border:3px solid #1d4a32;max-height:min(66dvh,480px);overflow:auto}
+.monitor .pick-close{color:#f6e9d6;z-index:1}
+.mon-stats{display:flex;gap:22px;padding-bottom:10px;margin-bottom:8px;border-bottom:2px dashed #1d4a32}
+.mon-stat b{display:block;font-size:1.9rem;line-height:1;color:#8fdcae}
+.mon-stat span{font-size:1.05rem;color:#8cc4a2}
+.mon-list{list-style:none;margin:0;padding:0}
+.mon-list li+li{border-top:2px solid #16382a}
+.mon-list a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;padding:8px 6px;color:inherit;text-decoration:none}
+.mon-list a:hover,.mon-list a:focus-visible{background:#17402b;outline:2px solid #8fdcae;outline-offset:-2px}
+.mon-repo{grid-column:1/-1;color:#8fdcae;font-size:1.05rem;overflow-wrap:anywhere}
+.mon-text{overflow-wrap:anywhere}
+.mon-when{color:#8cc4a2;font-size:1.05rem;white-space:nowrap;align-self:end}
+.mon-note{margin:6px 2px;color:#8cc4a2}
+.mon-note:empty{display:none}
+.mon-stand{position:relative;width:44px;height:16px;background:#2d2635;margin-bottom:24px}
+.mon-stand::after{content:"";position:absolute;left:50%;bottom:-10px;width:128px;height:10px;transform:translateX(-50%);background:#2d2635}
+
 /* ---------- sign in and questions (same pixel box as the picker) ---------- */
 .login-box p{margin:8px 0}
 .login-form{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:340px;margin-top:6px}
