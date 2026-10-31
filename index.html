@@ -128,6 +128,20 @@
   </dialog>
 
   <!-- Adopt a pet: the first one is free, the rest cost XP (adopt.js) -->
+  <dialog class="picker" id="monitorBox" aria-labelledby="monTitle">
+    <div class="monitor">
+      <button class="x pick-close" id="monClose" type="button" aria-label="Close">×</button>
+      <div class="mon-bezel px">
+        <h2 id="monTitle">My latest work</h2>
+        <div class="mon-screen">
+          <div class="mon-stats" id="monStats"></div>
+          <ol class="mon-list" id="monList" aria-label="Latest GitHub work"></ol>
+          <p class="mon-note" id="monNote" role="status"></p>
+        </div>
+      </div>
+      <div class="mon-stand" aria-hidden="true"></div>
+    </div>
+  </dialog>
   <dialog class="picker" id="adoptBox" aria-labelledby="adoptTitle">
     <div class="picker-box px adopt-box">
       <button class="x pick-close" id="adoptClose" type="button" aria-label="Close">×</button>

@@ -12,6 +12,7 @@ import * as strava from "./strava.js";
 import * as lastfm from "./lastfm.js";
 import { createScene } from "./scene.js";
 import { createRoom } from "./room.js";
+import { createMonitor } from "./monitor.js";
 import { dayXp, streakEnding, updateLedger, totalXp, progress } from "./xp.js";
 import { todayState, DEV_DAYS } from "./roomtoday.js";
 import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule } from "./characters.js";
@@ -68,10 +69,22 @@ const picker = createPicker({
 });
 $("picker").addEventListener("close", () => (fromCloset = false));
 
-// The closet in your room opens the picker with every character in it.
+// The desk's monitor: the latest GitHub work of whoever's world this is (yours, or the one you're peeking at).
+const monitor = createMonitor({ box: $("monitorBox"), title: $("monTitle"), stats: $("monStats"), list: $("monList"), note: $("monNote"), close: $("monClose") });
+function openMonitor() {
+  const c = S.contrib.get(TODAY_K);
+  monitor.open({
+    own: !!S.me, name: (S.profile && S.profile.name) || S.user, user: S.user, ok: S.eventsOk,
+    events: [...S.events.values()].flat(), today: c ? c.count : 0, streak: S.streak || 0
+  });
+  sfx.select();
+}
+
+// The closet in your room opens the picker with every character in it, the desk its monitor.
 room.onAction((action, it) => {
   if (!S) return;
   if (action === "next_room") return goRoom(it.interact.to);   // a door
+  if (action === "desk") return openMonitor();
   if (action !== "closet" || !S.me) return;
   fromCloset = true;
   picker.open(characterFor(S.me).id, EVERYONE, false, true);

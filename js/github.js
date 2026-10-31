@@ -81,7 +81,7 @@ const slimEvent = e => {
     repo: e.repo && { name: e.repo.name },
     payload: {
       head: p.head, ref: p.ref, ref_type: p.ref_type, action: p.action, number: p.number,
-      pull_request: p.pull_request && { number: p.pull_request.number },
+      pull_request: p.pull_request && { number: p.pull_request.number, merged: p.pull_request.merged, title: String(p.pull_request.title || "").slice(0, 80) },
       issue: p.issue && { number: p.issue.number },
       release: p.release && { tag_name: p.release.tag_name }
     }

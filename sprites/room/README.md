@@ -33,8 +33,8 @@ x runs along the right wall (toward the door), y runs along the left wall (towar
 ## Interactions
 `interact.tile` = the tile the character stands on to use the item.
 - closet -> open character picker
-- desk -> (later) GitHub stats
-- bed -> (later) rest / nap
+- desk -> opens the monitor panel with the latest GitHub work (js/monitor.js). In a peek (someone else's room) the desk is always offered
+- bed -> "Sleep": the character lies in bed under the blanket, the lights dim (the lamp keeps a glow), any key, click or tap stands it up. The lying pose and blanket line are SLEEP_POSE and SLEEP_BLANKET in js/room.js, tuned to bed.png; if you redraw the bed, retune them
 - door -> next room, `locked: true` until unlocked
 
 ## Levels

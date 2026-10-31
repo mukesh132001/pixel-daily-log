@@ -17,8 +17,11 @@
 // row, flipped when heading left. Left alone for a while, it wanders. Furniture and character are drawn in
 // depth order, so it can walk behind the bed. Reduced motion: no wandering, but keys and clicks still work.
 //
-// Standing on a piece's interact tile shows a bubble: the closet opens the character picker (E or Enter), and a
-// door takes you to the next room (or says why it's still locked).
+// Standing on a piece's interact tile shows a bubble: the closet opens the character picker (E or Enter), a
+// door takes you to the next room (or says why it's still locked), the desk opens the monitor with your latest
+// GitHub work (main.js), and the bed puts the character to sleep: it lies down under the blanket, the lights go
+// down (the lamp still glows), and any key, click or tap stands it up again. In someone else's room (a peek) you
+// can't walk, but the desk is always offered so you can see their work.
 //
 // There are two rooms, one engine: your room (sprites/room/) and the pet room (sprites/petroom/, loaded the first time
 // you go there). Layers, depth sorting, blocked tiles, Leo's walking and the camera are shared; enter() switches.
@@ -35,7 +38,7 @@
 // room dims (zzz after 9pm) while nothing is logged yet. Reduced motion keeps the props but stills them.
 
 import { drawPennant, cleanSchool } from "./art.js";
-import { FRAME_MS, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
+import { FRAME_MS, FRAME_W, FRAME_H, ROWS, drawFrame, loadImage as loadSprite } from "./characters.js";
 import { createFloor, toScreen, toWorld, tileOf, tileMiddle } from "./roomfloor.js";
 import { MAX_LEVEL } from "./xp.js";
 import { createPetLife, PET_FRAME } from "./pets.js";
@@ -64,6 +67,18 @@ const MIN_SCALE = 2;                  // never smaller than this many CSS pixels
 const PAD = 8;                        // breathing room around the art, in room pixels
 
 const POP_MS = 600;                   // how long new furniture takes to drop in after a level up
+
+// Sleeping. The character lies on its back (the front idle frame turned 90 degrees) with its head on the pillow,
+// leaning along the bed like everything else (1 pixel down for every 2 across). SLEEP_POSE is where the lying
+// picture's top-left goes, from the bed piece's top-left; SLEEP_BLANKET is a point on the blanket's edge, and
+// the blanket covers everything on the foot side of the line through it.
+const SLEEP_POSE = { x: 6, y: 3 };
+const SLEEP_BLANKET = { x: 23, y: 28 };
+const SLEEP_FADE_MS = 700;            // the lights go down (and come back up) this slowly
+const SLEEP_DIM = 0.68;               // how dark the room gets
+const WAKE_GUARD_MS = 350;            // the key or click that started the sleep can't also end it
+const GLOW = [[38, 27], [29, 20], [20, 14], [11, 8]];   // the lamp's light: stepped ellipses [half width, half height]
+const USES = ["closet", "next_room", "bed", "desk"];    // the interact actions that do something
 
 // Your school pennant: our own art (art.js), so it's drawn in code instead of coming from the manifest.
 const PENNANT = { id: "pennant", layer: "wall", x: 31, y: 112, unlockLevel: 1 };
@@ -129,6 +144,10 @@ export function createRoom(canvas, els) {
   let todayCfg = null, today = todayState({}, 0, 0);   // sprites/today/today_manifest.json, and what you did today
   today.quiet = false;                // until main.js says otherwise, don't dim
   let spark = null, nextSpark = 0, beat = -1;
+  let sleep = null, lights = 0, lying = null;   // in bed (when it began), how dark the room is (0 to 1), the lying picture
+  const dark = document.createElement("canvas"); // the night's shadow, with the lamp's light cut out of it
+  dark.width = W;
+  dark.height = H;
   let school = DEFAULT_SCHOOL, canWalk = true, level = 1, items = [], floor = createFloor([]);
   const pops = new Map();             // pieces dropping in right now: id -> when they started
   let onAction = () => {};
@@ -273,7 +292,38 @@ export function createRoom(canvas, els) {
       { d: toScreen(me.at.x, me.at.y).y, run: drawMe, last: true }
     ];
     stack.sort((a, b) => a.d - b.d || (a.last ? 1 : 0) - (b.last ? 1 : 0)).forEach(e => e.run());
-    if (world === "room") drawDay();
+    if (world === "room") {
+      drawDay();
+      if (lights > 0) drawNight();
+    }
+  }
+
+  // Lights down for sleeping: a soft shadow over the room with the lamp's light cut out of it in stepped
+  // ellipses (hard pixels, like everything else), plus a warm tint where the light is.
+  function drawNight() {
+    const a = lights * SLEEP_DIM, d = dark.getContext("2d");
+    d.globalCompositeOperation = "source-over";
+    d.clearRect(0, 0, W, H);
+    d.fillStyle = `rgba(20, 12, 42, ${a.toFixed(3)})`;
+    d.fillRect(0, 0, W, H);
+    const lamp = items.find(i => i.id === "lamp");
+    const lit = (ctx2, ring, color) => {
+      const cx = Math.round(lamp.x + lamp.w / 2), cy = Math.round(lamp.y + 10);
+      ctx2.fillStyle = color;
+      for (let dy = -ring[1]; dy <= ring[1]; dy++) {
+        const half = Math.round(ring[0] * Math.sqrt(1 - (dy / (ring[1] + 0.5)) ** 2));
+        ctx2.fillRect(cx - half, cy + dy, half * 2 + 1, 1);
+      }
+    };
+    if (lamp) {
+      d.globalCompositeOperation = "destination-out";
+      GLOW.forEach(ring => lit(d, ring, "rgba(0, 0, 0, 0.3)"));
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";   // only over the room, not the empty space around it
+    ctx.drawImage(dark, 0, 0);
+    if (lamp) GLOW.forEach(ring => lit(ctx, ring, `rgba(255, 205, 120, ${(0.045 * lights).toFixed(3)})`));
+    ctx.restore();
   }
 
   // A pet: its feet (the middle of the bottom row of its frame) land on a room pixel.
@@ -292,7 +342,7 @@ export function createRoom(canvas, els) {
       ctx.restore();
     }
     const feet = toScreen(me.at.x, me.at.y), fx = Math.round(feet.x), fy = Math.round(feet.y);
-    if (today.night && !me.walking && sprites && todayCfg && todayCfg.zzz && todayCfg.zzz.frames.length) {
+    if (today.night && !me.walking && !sleep && sprites && todayCfg && todayCfg.zzz && todayCfg.zzz.frames.length) {
       const z = todayCfg.zzz, bob = Math.floor(performance.now() / (700 * SLOW)) % 2;
       ctx.drawImage(imgs[z.frames[0]], fx + z.dx, fy + z.dy - bob);
     }
@@ -327,6 +377,7 @@ export function createRoom(canvas, els) {
   // Whole pixels only: the feet land on a room pixel, whichever way it's facing.
   function drawMe() {
     if (!sprites) return;
+    if (sleep) return drawSleeping();
     const feet = toScreen(me.at.x, me.at.y), x = Math.round(feet.x), y = Math.round(feet.y);
     if (me.walking) {
       const left = me.facing < 0;
@@ -334,6 +385,41 @@ export function createRoom(canvas, els) {
     } else {
       drawFrame(ctx, sprites.front, me.frame, 0, x - FACE.front, y);
     }
+  }
+
+  // The character in bed: the lying picture sheared along the bed, the blanket (the bed's own art, redrawn from
+  // the blanket's edge on) over it, and little Zs floating up (not with reduced motion).
+  function drawSleeping() {
+    const bed = items.find(i => i.id === "bed");
+    if (!bed || !lying) return;
+    const x0 = bed.x + SLEEP_POSE.x, y0 = bed.y + SLEEP_POSE.y;
+    for (let c = 0; c < lying.width; c++) ctx.drawImage(lying, c, 0, 1, lying.height, x0 + c, y0 + (c >> 1), 1, lying.height);
+    const img = imgs[bed.src];
+    for (let c = 0; c < img.width; c++) {
+      const top = Math.max(0, SLEEP_BLANKET.y - ((c - SLEEP_BLANKET.x) >> 1));
+      if (top < img.height) ctx.drawImage(img, c, top, 1, img.height - top, bed.x + c, bed.y + top, 1, img.height - top);
+    }
+    if (reduced) return;
+    const now = performance.now();
+    for (let n = 0; n < 3; n++) {
+      const t = (now / 3000 + n / 3) % 1;
+      ctx.globalAlpha = Math.min(1, (1 - t) * 1.6);
+      drawText(px, "Z", x0 + 8 + n * 3 + Math.round(Math.sin((t + n) * 5) * 2), y0 - 3 - Math.round(t * 16), "#fff1d6", "#3d2e3f");
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // The lying picture: the front idle frame turned onto its back, head to the left (toward the pillow).
+  function makeLying() {
+    if (!sprites) { lying = null; return; }
+    lying = document.createElement("canvas");
+    lying.width = FRAME_H;
+    lying.height = FRAME_W;
+    const t = lying.getContext("2d");
+    t.imageSmoothingEnabled = false;
+    t.translate(FRAME_H / 2, FRAME_W / 2);
+    t.rotate(-Math.PI / 2);
+    t.drawImage(sprites.front, 0, 0, FRAME_W, FRAME_H, -FRAME_W / 2, -FRAME_H / 2, FRAME_W, FRAME_H);
   }
 
   // The art's real edges in room pixels (the canvas has empty margins), with a little breathing room.
@@ -419,6 +505,12 @@ export function createRoom(canvas, els) {
 
   // One step of the world: walk with the keys or along the path, turn the animation, wander after a rest.
   function update(now, dt) {
+    const goal = sleep ? 1 : 0;
+    if (lights !== goal) {
+      lights = reduced ? goal : goal > lights ? Math.min(goal, lights + dt * 1000 / SLEEP_FADE_MS) : Math.max(goal, lights - dt * 1000 / SLEEP_FADE_MS);
+      dirty = true;
+    }
+    if (sleep) return;
     const [kx, ky] = canWalk ? heldDirection() : [0, 0];
     if (kx || ky) {
       keysAt = now;
@@ -464,13 +556,40 @@ export function createRoom(canvas, els) {
     cam.y += (ty - cam.y) * a;
   }
 
-  // ----- the bubble over the closet and the door -----
+  // ----- sleeping -----
 
-  // The piece whose interact tile you're standing on (only the ones that do something yet).
+  function startSleep() {
+    if (sleep || !canWalk || !lying || !items.some(i => i.id === "bed")) return;
+    const now = performance.now();
+    held.clear();
+    me.path = [];
+    stopWalking(now);
+    sleep = { at: now };
+    near = null;
+    dirty = true;
+  }
+
+  // Up again, standing where it was: next to the bed, on its interact tile.
+  function wakeUp(now = performance.now()) {
+    if (!sleep) return;
+    sleep = null;
+    me.frame = 0;
+    me.frameAt = now;
+    keysAt = now;   // stay a moment before wandering off
+    rest(now);
+    near = null;
+    dirty = true;
+  }
+
+  // ----- the bubble over the closet, the door, the desk and the bed -----
+
+  // The piece whose interact tile you're standing on (only the ones that do something yet). In someone else's room
+  // you can't walk, so the desk is always the one on offer.
   function pieceHere() {
-    if (!canWalk) return null;
+    if (sleep) return null;
+    if (!canWalk) return world === "room" ? items.find(i => i.interact && i.interact.action === "desk") || null : null;
     const [tx, ty] = tileOf(me.at);
-    return items.find(i => i.interact && (i.interact.action === "closet" || i.interact.action === "next_room") &&
+    return items.find(i => i.interact && USES.includes(i.interact.action) &&
       i.interact.tile[0] === tx && i.interact.tile[1] === ty) || null;
   }
 
@@ -479,6 +598,8 @@ export function createRoom(canvas, els) {
 
   function bubbleFor(it) {
     if (it.interact.action === "closet") return { text: "Press E", button: "Open" };
+    if (it.interact.action === "bed") return { text: "Press E", button: "Sleep", always: true };
+    if (it.interact.action === "desk") return { text: "Press E", button: canWalk ? "Check my work" : "See their work", always: true };
     if (locked(it)) return { text: (doors[world] && doors[world].hint) || "Locked" };
     return { text: `Press E: ${it.interact.to === "pets" ? "pet room" : "your room"}`, button: "Open" };
   }
@@ -490,7 +611,7 @@ export function createRoom(canvas, els) {
       near = it;
       els.bubble.hidden = !it;
       if (it) {
-        const b = bubbleFor(it), tap = !!b.button && touch.matches;
+        const b = bubbleFor(it), tap = !!b.button && (b.always || touch.matches);
         els.bubbleText.textContent = tap ? "" : b.text;
         els.bubbleText.hidden = tap;
         els.open.textContent = b.button || "";
@@ -503,12 +624,15 @@ export function createRoom(canvas, els) {
     els.bubble.style.top = `${Math.round((offY + it.y * k) * css)}px`;
   }
 
-  // E, Enter or the Open button: use the piece you're standing at.
+  // E, Enter or the bubble's button: use the piece you're standing at.
   function use() {
     const it = pieceHere();
-    if (!it || (it.interact.action === "next_room" && locked(it)) || !["closet", "next_room"].includes(it.interact.action)) return false;
+    if (!it) return false;
+    const action = it.interact.action;
+    if (!USES.includes(action) || (action === "next_room" && locked(it)) || (!canWalk && action !== "desk")) return false;
     held.clear();   // a box opens over the room, or we're off to the next one, so stop walking
-    onAction(it.interact.action, it);
+    if (action === "bed") startSleep();
+    else onAction(action, it);
     return true;
   }
 
@@ -517,7 +641,7 @@ export function createRoom(canvas, els) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, (now - (last || now)) / 1000);
     last = now;
-    if (!canvas.clientWidth) { held.clear(); return; }   // the room screen is closed
+    if (!canvas.clientWidth) { held.clear(); sleep = null; lights = 0; return; }   // the room screen is closed
     update(now, dt);
     follow(dt);
     if (pops.size) dirty = true;   // furniture dropping in
@@ -536,7 +660,7 @@ export function createRoom(canvas, els) {
       if (nextSpark) spark = { at: now, dx: Math.round(Math.random() * 28 - 14), dy: -Math.round(20 + Math.random() * 22) };
       nextSpark = now + SPARK_EVERY[0] + Math.random() * (SPARK_EVERY[1] - SPARK_EVERY[0]);
     }
-    const moving = today.coded || today.night || today.music || spark || (!reduced && items.some(i => i.frames && i.frames.length > 1));
+    const moving = today.coded || today.night || today.music || spark || (sleep && !reduced) || (!reduced && items.some(i => i.frames && i.frames.length > 1));
     const b = Math.floor(now / 100);
     if (moving && b !== beat) { beat = b; dirty = true; }
   }
@@ -555,14 +679,18 @@ export function createRoom(canvas, els) {
   // ----- keys, the touch pad and clicks -----
 
   // The room takes the keys only while it's on screen, yours, and no box is open over it.
-  const listening = () => !!(imgs && canWalk && canvas.clientWidth && !document.querySelector("dialog[open]"));
+  const listening = () => !!(imgs && canvas.clientWidth && !document.querySelector("dialog[open]"));
   const keyName = e => (e.key.length === 1 ? e.key.toLowerCase() : e.key);
 
   document.addEventListener("keydown", e => {
     if (!listening() || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target.closest && e.target.closest("input, textarea, select")) return;
     const key = keyName(e);
-    if (KEYS[key]) { e.preventDefault(); held.add(key); return; }
+    if (sleep) {   // any key gets up (but not the one that went to bed, or its repeats)
+      if (!e.repeat && performance.now() - sleep.at > WAKE_GUARD_MS) { wakeUp(); if (KEYS[key] || key === " ") e.preventDefault(); }
+      return;
+    }
+    if (KEYS[key]) { if (canWalk) { e.preventDefault(); held.add(key); } return; }
     // Enter on a button presses that button; E works anywhere.
     if ((key === "e" || (key === "Enter" && !(e.target.closest && e.target.closest("button, a")))) && use()) e.preventDefault();
   });
@@ -581,6 +709,8 @@ export function createRoom(canvas, els) {
     b.addEventListener("contextmenu", e => e.preventDefault());   // a long press shouldn't open a menu
   });
   els.open.addEventListener("click", use);
+  // Any click or tap gets up too. (Capture, so it works wherever you press; the Sleep button's own press came first.)
+  document.addEventListener("pointerdown", () => { if (sleep && performance.now() - sleep.at > WAKE_GUARD_MS) wakeUp(); }, true);
 
   // Each piece's see-through pixels, so a click can tell the closet from the floor behind it.
   function alphaMasks(images) {
@@ -610,11 +740,17 @@ export function createRoom(canvas, els) {
   }
 
   canvas.addEventListener("click", e => {
-    if (!canWalk || !imgs) return;
+    if (!imgs) return;
     const r = canvas.getBoundingClientRect();
     const x = Math.floor(((e.clientX - r.left) * canvas.width / r.width - offX) / k);
     const y = Math.floor(((e.clientY - r.top) * canvas.height / r.height - offY) / k);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
+    if (!canWalk) {   // someone else's room: only the desk answers (it shows their work)
+      const it = pieceAt(x, y);
+      if (it && it.interact && it.interact.action === "desk") use();
+      return;
+    }
+    if (sleep) return;   // just went to bed: this click is the one that did it
     const now = performance.now();
     if (world === "pets" && petLife) {                  // a click on a pet gives it a heart
       const pet = petLife.hit(x, y, now);
@@ -650,7 +786,7 @@ export function createRoom(canvas, els) {
     dirty = true;
     const want = wanted = character;
     Promise.all([loadSprite(character.front), loadSprite(character.side)])
-      .then(([front, side]) => { if (want === wanted) { sprites = { front, side }; dirty = true; } })   // ignore a slower, older pick
+      .then(([front, side]) => { if (want === wanted) { sprites = { front, side }; makeLying(); dirty = true; } })   // ignore a slower, older pick
       .catch(e => console.warn(e.message));
   }
 
@@ -749,6 +885,8 @@ export function createRoom(canvas, els) {
     if (name === "pets") await loadPets();
     if (name === world) return;
     world = name;
+    sleep = null;
+    lights = 0;
     manifest = name === "pets" ? petManifest : roomManifest;
     const now = performance.now();
     stopWalking(now);
