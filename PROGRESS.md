@@ -1,6 +1,6 @@
 # PROGRESS.md: where Pixel daily log stands
 
-Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is merged or a decision is made.
+Last updated: Saturday, Oct 31, 2026. Update this file whenever a pull request is merged or a decision is made.
 
 ## ✅ Live right now
 
@@ -42,7 +42,7 @@ Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is 
   - the character walks around the room: wanders every 3–7 s, and on your own room you click the floor to send it there (not on visits)
   - floor grid in `js/roomfloor.js`: u along the right wall, v along the left wall; furniture footprints are `foot: [u0, u1, v0, v1]` in `PLACES` (room.js), and the floor lamp is blocked too
   - walking uses the side walk row (flipped when heading left), standing the front idle; depth order lets it walk behind the bed; the camera follows smoothly on phones
-  - reduced motion: no wandering, clicking still works
+  - reduced motion: wanders slowly (see small-fixes)
 - **Also merged:** `login` (PR 15) and `supabase-config` (PR 16): sign-in is live. `profiles` table created (Oct 29, 2026), anon gets "permission denied" as it should.
   - optional email sign-in with a magic link (Supabase); guests work exactly like before and never download Supabase
   - signed in, your profile (name, school, character, unlocks, streak log, pet, GitHub username) saves to your account; Strava tokens and runs stay in the browser
@@ -86,6 +86,7 @@ Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is 
   - **visitors** see the pet room read-only with no pets (pets are private profile data)
   - dev: `?dev&pets=all` (every pet, door open) and `?dev&pets=none`, nothing saved
   - **rooms-polish** (done): both rooms scale to the largest whole number that fits (`measure`/`rescale` in room.js, camera only when the art does not fit: 2x with camera at 375 wide, 3x at 768 and 1280, more on big screens); the "Level up!" banner and bubbles are centred (`.px` margin removed); pets redrawn natively at **21x21** in `tools/petpack/gen.py` (hand-placed faces, round sleeping curl, shared feet row 19, `pets.json` now has `feetX`/`feetY`), so they sit about knee-to-waist next to Leo. If the pet size changes again, update `PET_FRAME` in js/pets.js and in tools/dogroom/export_room.py, then re-run the exporters
+- **Also on `small-fixes` (not merged yet):** run cycle polish in scene.js (1px bounce on run frames 1 and 3, about 100-120 ms a frame, dust only on stride frames 0 and 2); **reduced motion now slows things down** (scene, rooms, pets, picker) and only drops flashy bits (star twinkle, flame flicker, sparkles, bursts, wipes); the old layered character code, `gallery.html` and the `character` profile field were removed; README rewritten. The card-lists fix was already done in PR 10.
 
 
 ## 🧭 Decisions we made
