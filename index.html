@@ -203,12 +203,44 @@
 
     <article class="panel px" id="pMusic" aria-labelledby="hMusic">
       <h2 id="hMusic"><span class="ico" data-icon="tape"></span>Music</h2>
-      <p class="sub">The day’s soundtrack</p>
-      <div class="tape" aria-hidden="true">
-        <div class="label">Coming soon</div>
-        <div class="reel l"></div><div class="reel r"></div>
+      <p class="sub" id="musicSub">The day’s soundtrack</p>
+
+      <!-- Not connected (or a peek with no Last.fm): how to connect, and the username box -->
+      <div id="musicEmpty">
+        <div class="tape" aria-hidden="true">
+          <div class="label">No tape yet</div>
+          <div class="reel l"></div><div class="reel r"></div>
+        </div>
+        <p id="musicEmptyTitle"><b>Connect Last.fm to see your day’s soundtrack</b></p>
+        <div id="musicConnect">
+          <ol class="howto small">
+            <li>On Last.fm, open <b>Settings → Applications</b> and connect <b>Spotify</b>. Last.fm then records what you play.</li>
+            <li>Type your Last.fm username here.</li>
+          </ol>
+          <form class="runform" id="musicForm">
+            <label class="wide" for="lfUser">Last.fm username<input id="lfUser" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="your-name"></label>
+            <button class="btn primary px wide" id="musicGo" type="submit">Connect Last.fm</button>
+          </form>
+        </div>
+        <p class="small" id="musicMsg" role="status"></p>
       </div>
-      <div class="muted">Music arrives in a later round through Last.fm, which can record everything you play on Spotify.</div>
+
+      <!-- Connected: the selected day's soundtrack -->
+      <div id="musicBody" hidden>
+        <p class="nowplaying" id="musicNow" role="status" hidden></p>
+        <div class="pacebox">
+          <div class="pacecard"><span class="muted">Plays</span><b id="musicPlays">—</b><span class="small" id="musicPlaysSub">&nbsp;</span></div>
+          <div class="pacecard"><span class="muted">Top artist</span><b id="musicArtist">—</b><span class="small" id="musicArtistSub">&nbsp;</span></div>
+        </div>
+        <h3 id="musicTracksH">Top tracks</h3>
+        <ol class="list tracks" id="musicTracks"></ol>
+        <p class="small" id="musicNote" role="status"></p>
+        <details class="addrun" id="musicSettings" hidden>
+          <summary>Last.fm settings</summary>
+          <label class="check small"><input type="checkbox" id="musicShare"> Include my Last.fm username in “Copy link”</label>
+          <button class="btn px" id="musicOff" type="button">Disconnect Last.fm</button>
+        </details>
+      </div>
     </article>
   </section>
 

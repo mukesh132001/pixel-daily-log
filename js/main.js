@@ -9,6 +9,7 @@ import {
 } from "./github.js";
 import { loadRuns, saveRuns, pace, formatPace, paceValue, averagePace, isRun, totalMiles } from "./runs.js";
 import * as strava from "./strava.js";
+import * as lastfm from "./lastfm.js";
 import { createScene } from "./scene.js";
 import { createRoom } from "./room.js";
 import { dayXp, streakEnding, updateLedger, totalXp, progress } from "./xp.js";
@@ -43,6 +44,9 @@ const DEV_STREAK = DEV && PARAMS.has("streak") ? Number(PARAMS.get("streak")) : 
 // ?dev&pets=all adopts every pet (and opens the pet room's door) for this visit; ?dev&pets=none starts with no pets.
 // Nothing is saved.
 const DEV_PETS = DEV && PARAMS.has("pets") ? (PARAMS.get("pets") === "none" ? "none" : "all") : null;
+// ?dev&lastfm=demo fills the Music card with made-up plays (no Worker, nothing saved).
+const DEV_LASTFM = DEV && PARAMS.get("lastfm") === "demo";
+if (DEV_LASTFM) lastfm.useDemo(true);
 const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
 const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
 // Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
@@ -86,7 +90,8 @@ if (DEV) {
   });
 }
 
-// The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, eventsError, runs, strava, stravaError }
+// The loaded world: { me, user, profile, contrib, events, yearTotal, eventsOk, eventsError, runs, strava, stravaError,
+//   lastfm (a Last.fm username or ""), music (Map: day -> plays, filled in as Last.fm answers) }
 // me is your profile on your own world, or null when peeking at someone else's (read-only).
 // user and profile are the GitHub login and profile, or null without GitHub.
 let S = null;
@@ -99,7 +104,8 @@ const WORLD_PARTS = ["calbox", "roomBtn", "panels", "tabs", "stats", "who", "sha
 
 // name: a GitHub username, or null for a profile without GitHub.
 // me: your profile if this is your world, null to peek at someone else's.
-async function loadWorld(name, me) {
+// lastfmName: for a peek, the Last.fm username from the shared link (your own comes from your profile).
+async function loadWorld(name, me, lastfmName = "") {
   const user = name ? name.trim().replace(/^@/, "") : null;
   if (user && !isValidUsername(user)) {
     say("That doesn’t look like a GitHub username. Use letters, numbers and dashes.", true);
@@ -152,21 +158,38 @@ async function loadWorld(name, me) {
     yearTotal: contribOk ? contribR.value.yearTotal : null,
     runs: me ? loadRuns(me.id) : {},
     strava: stravaR.status === "fulfilled" ? stravaR.value : null,
-    stravaError: stravaR.status === "rejected" ? stravaErrorText(stravaR.reason) : ""
+    stravaError: stravaR.status === "rejected" ? stravaErrorText(stravaR.reason) : "",
+    lastfm: lastfmFor(me, lastfmName),
+    music: new Map()
   };
 
-  try {
-    const u = new URL(location.href);
-    if (login) u.searchParams.set("user", login);
-    else u.searchParams.delete("user");
-    history.replaceState(null, "", u);
-  } catch (e) {}
+  syncUrl();
 
   $("go").disabled = false;
   say("");
   if (!S.eventsOk) say("Activity details didn’t load (GitHub’s hourly limit may be used up). Showing contribution levels only.", true);
   showWorld();
   sfx.start();
+}
+
+// Which Last.fm username this world uses: yours (from your profile) or, on a peek, the one in the shared link.
+function lastfmFor(me, fromLink) {
+  if (!lastfm.isConfigured()) return "";
+  if (DEV_LASTFM) return "demo";
+  const u = (me ? me.lastfm : fromLink) || "";
+  return lastfm.isValidLastfm(u) ? u : "";
+}
+
+// The address bar (and so "Copy link") names the world and, if it's shared, its Last.fm username.
+function syncUrl() {
+  try {
+    const u = new URL(location.href);
+    if (S.user) u.searchParams.set("user", S.user);
+    else u.searchParams.delete("user");
+    if (S.lastfm && (DEV_LASTFM || !S.me || S.me.lastfmShare !== false)) u.searchParams.set("lastfm", S.lastfm);
+    else u.searchParams.delete("lastfm");
+    history.replaceState(null, "", u);
+  } catch (e) {}
 }
 
 function loadMyWorld() {
@@ -245,6 +268,7 @@ function info(i) {
   }
 
   return {
+    plays: (S.music && S.music.get(k)) || 0,
     i, d, k, count: c.count, level: c.level || (ev.length ? 1 : 0), ev, runs, manual, fromStrava,
     future, today, mode, active: runs.length > 0 || c.count > 0,
     hour, phase: phaseFor(hour),
@@ -326,6 +350,7 @@ function showWorld() {
     if (x.active || x.ev.length) { sel = i; break; }
   }
   select(sel, false);
+  loadMusicMonth();
   route();   // a link ending in #room goes straight to the room
 }
 
@@ -716,6 +741,7 @@ function refreshTiles() {
     icons.className = "icons";
     if (x.level || x.ev.some(ev => ev.type !== "WatchEvent")) icons.appendChild(iconSpan("laptop"));
     if (x.runs.length) icons.appendChild(iconSpan("shoe"));
+    if (x.plays) icons.appendChild(iconSpan("note"));
     b.append(num, icons);
   });
 }
@@ -727,6 +753,7 @@ function tileTip(x) {
   const bits = [];
   if (x.runs.length) bits.push(`${x.runs.length} ${x.runs.length === 1 ? "activity" : "activities"}, ${totalMiles(x.runs).toFixed(1)} mi`);
   if (x.count) bits.push(`${x.count} contribution${x.count === 1 ? "" : "s"}`);
+  if (x.plays) bits.push(`${x.plays} song${x.plays === 1 ? "" : "s"} played`);
   if (x.pr) bits.push("best pace!");
   return `${date}: ${bits.length ? bits.join(", ") : x.today ? "nothing yet" : "rest day"}`;
 }
@@ -741,6 +768,7 @@ function select(i, byUser) {
   canvas.setAttribute("aria-label", fmt(x.d) + ". " + summary(x));
   renderGitHub(x);
   renderRuns(x);
+  renderMusic(x);
   refreshBars();
   scene.setMode(x);
   if (byUser) sfx.select();
@@ -771,7 +799,7 @@ function refreshStats() {
 function refreshToday() {
   if (!S) return;
   const i = DAYS.findIndex(d => key(d) === TODAY_K), x = i >= 0 ? info(i) : null;
-  const day = DEV_TODAY || (x ? { count: x.count, level: x.level, pushed: x.ev.some(e => e.type === "PushEvent"), runs: x.runs } : {});
+  const day = DEV_TODAY || (x ? { count: x.count, level: x.level, pushed: x.ev.some(e => e.type === "PushEvent"), runs: x.runs, plays: x.plays } : {});
   const streak = DEV_STREAK != null ? DEV_STREAK : DEV_TODAY ? (DEV_TODAY === DEV_DAYS.both ? 5 : 0) : S.streak || 0;
   room.setToday(todayState(day, streak, DEV_HOUR != null ? DEV_HOUR : new Date().getHours()));
 }
@@ -806,6 +834,160 @@ function setFolded(list, btn, folded) {
   btn.setAttribute("aria-expanded", !folded);
   btn.textContent = folded ? `Show all ${list.children.length} ▾` : "Show less ▴";
 }
+
+// ---------- Music card (Last.fm) ----------
+
+let musicToken = 0;       // a newer request makes older ones stop (flipping through days quickly)
+let musicQueued = false;
+
+// The calendar notes and the room's record player follow the play counts, once per frame at most.
+function musicChanged() {
+  if (musicQueued) return;
+  musicQueued = true;
+  requestAnimationFrame(() => {
+    musicQueued = false;
+    if (!S) return;
+    refreshTiles();
+    refreshToday();
+  });
+}
+
+function musicProblem(e) {
+  const why = e && e.reason;
+  return why === "user not found" ? `Last.fm can’t find “${S.lastfm}”. Check the spelling.`
+    : why === "private" ? "This listening history is hidden. On Last.fm, open Settings → Privacy and turn off “Hide recent listening information”."
+    : e && e.limited ? "Last.fm is busy right now. Try again in a minute."
+    : "Music isn’t available right now.";
+}
+
+// data: { plays, artist, tracks } or null; note: a line under the lists (loading, a problem, saved data).
+function fillMusic(data, note = "") {
+  $("musicPlays").textContent = data ? data.plays : "—";
+  $("musicPlaysSub").textContent = data ? (data.plays === 1 ? "play" : "plays") : " ";
+  $("musicArtist").textContent = data && data.artist ? data.artist.name : "—";
+  $("musicArtist").title = data && data.artist ? data.artist.name : "";
+  $("musicArtistSub").textContent = data && data.artist ? `${data.artist.plays} play${data.artist.plays === 1 ? "" : "s"}` : " ";
+  const list = $("musicTracks");
+  list.textContent = "";
+  (data ? data.tracks : []).forEach(t => {
+    const li = document.createElement("li");
+    const main = document.createElement("span");
+    main.textContent = t.name;
+    const by = document.createElement("span");
+    by.className = "by";
+    by.textContent = t.artist;
+    main.appendChild(by);
+    const n = document.createElement("span");
+    n.className = "plays";
+    n.textContent = t.plays > 1 ? `×${t.plays}` : "";
+    li.append(main, n);
+    list.appendChild(li);
+  });
+  $("musicTracksH").hidden = list.hidden = !list.children.length;
+  $("musicNote").textContent = note || (data && !data.plays ? "No plays this day." : "");
+}
+
+// x: the selected day (see info()). quiet: a refresh of the same day, so don't flash "Loading".
+function renderMusic(x, quiet = false) {
+  const user = S.lastfm, own = !!S.me, ready = lastfm.isConfigured();
+  $("musicEmpty").hidden = !!user;
+  $("musicBody").hidden = !user;
+  if (!user) {
+    $("musicConnect").hidden = !(own && ready);
+    $("musicEmptyTitle").firstElementChild.textContent = !ready ? "Music isn’t available right now."
+      : own ? "Connect Last.fm to see your day’s soundtrack" : "This player hasn’t shared their Last.fm.";
+    $("musicSub").textContent = "The day’s soundtrack";
+    return;
+  }
+  $("musicSub").textContent = `Last.fm: ${user}`;
+  $("musicSettings").hidden = !own || DEV_LASTFM;
+  $("musicShare").checked = own && S.me.lastfmShare !== false;
+  $("musicNow").hidden = true;
+  if (x.future) { fillMusic(null, "This day hasn’t happened yet."); return; }
+
+  const token = ++musicToken, mine = S;
+  lastfm.clearSaved();
+  if (!quiet) fillMusic(null, "Loading the soundtrack…");
+  lastfm.soundtrack(user, x.d).then(data => {
+    if (token !== musicToken || S !== mine) return;
+    if (mine.music.get(x.k) !== data.plays) { mine.music.set(x.k, data.plays); musicChanged(); }
+    const since = lastfm.savedSince();
+    fillMusic(data, since ? `Showing saved data from ${ago(since)}.` : data.partial ? "The top lists use the latest 600 plays that day." : "");
+  }).catch(e => {
+    if (token === musicToken && S === mine) fillMusic(null, musicProblem(e));
+  });
+
+  if (x.today) {   // "Now playing" only means something for today
+    lastfm.nowPlaying(user).then(t => {
+      if (token !== musicToken || S !== mine || !t) return;
+      $("musicNow").textContent = `▶ Now playing: ${t.name} — ${t.artist}`;
+      $("musicNow").hidden = false;
+    }).catch(() => {});
+  }
+}
+
+// Each day's play count, newest first, a few at a time, so the calendar fills in without hammering Last.fm.
+// Earlier days are saved for a day (here and at the Worker), so later visits are quick.
+async function loadMusicMonth() {
+  const mine = S;
+  if (!mine || !mine.lastfm) return;
+  const days = DAYS.filter(d => d <= TODAY).reverse();
+  let next = 0, stop = false;
+  const runner = async () => {
+    while (!stop && next < days.length && S === mine) {
+      const d = days[next++];
+      try {
+        const n = await lastfm.playsOn(mine.lastfm, d);
+        if (S !== mine) return;
+        if (mine.music.get(key(d)) !== n) { mine.music.set(key(d), n); musicChanged(); }
+      } catch (e) {
+        if (e.limited || e.reason === "user not found" || e.reason === "private") stop = true;   // no point asking more
+      }
+    }
+  };
+  await Promise.all([runner(), runner(), runner()]);
+}
+
+// Connect, share or disconnect (your own world only).
+function setLastfm(changes) {
+  S.me = { ...S.me, ...changes };
+  saveProfile(S.me);
+  if ("lastfm" in changes) {
+    S.lastfm = lastfmFor(S.me, "");
+    S.music.clear();
+    musicChanged();
+    loadMusicMonth();
+  }
+  syncUrl();
+  renderMusic(info(sel));
+}
+
+$("musicForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!S || !S.me) return;
+  const name = $("lfUser").value.trim().replace(/^@/, ""), msg = $("musicMsg");
+  msg.textContent = "";
+  if (!lastfm.isValidLastfm(name)) { msg.textContent = "Last.fm usernames are 2 to 15 letters, numbers, - or _."; return; }
+  $("musicGo").disabled = true;
+  msg.textContent = "Checking Last.fm…";
+  try {
+    const found = await lastfm.userInfo(name);
+    msg.textContent = "";
+    $("lfUser").value = "";
+    setLastfm({ lastfm: found.name || name });
+    sfx.start();
+  } catch (err) {
+    msg.textContent = err.reason === "user not found" ? `Last.fm has no user called “${name}”. Check the spelling.` : musicProblem(err);
+  }
+  $("musicGo").disabled = false;
+});
+$("musicOff").addEventListener("click", () => { if (S && S.me) { setLastfm({ lastfm: "" }); sfx.select(); } });
+$("musicShare").addEventListener("change", e => { if (S && S.me) setLastfm({ lastfmShare: e.target.checked }); });
+
+// Today's soundtrack changes while you listen: look again now and then (answers are saved for a few minutes).
+setInterval(() => {
+  if (S && S.lastfm && !document.hidden && DAYS[sel] && key(DAYS[sel]) === TODAY_K) renderMusic(info(sel), true);
+}, 120000);
 
 // ---------- GitHub panel ----------
 
@@ -1151,7 +1333,7 @@ document.addEventListener("keydown", e => {
   const fromUrl = new URLSearchParams(location.search).get("user");
   if (fromUrl) {
     $("userInput").value = fromUrl;
-    await loadWorld(fromUrl, isMine(me, fromUrl) ? me : null);
+    await loadWorld(fromUrl, isMine(me, fromUrl) ? me : null, new URLSearchParams(location.search).get("lastfm") || "");
   } else if (me) {
     await loadWorld(me.github, me);
   }

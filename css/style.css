@@ -304,6 +304,18 @@ button,input{font:inherit;color:inherit}
 .runform .wide{grid-column:1/-1}
 .runform label{font-size:1.05rem;color:var(--ink-soft);display:flex;flex-direction:column}
 
+/* the Music card */
+.howto{margin:6px 0 10px;padding-left:20px}
+.howto li{margin-bottom:4px}
+.nowplaying{margin:0 0 10px;padding:6px 10px;background:var(--music);color:#2b1e2c;overflow-wrap:anywhere}
+#musicArtist{white-space:normal;overflow-wrap:anywhere;line-height:1.1}
+.tracks{list-style:none;counter-reset:track;padding:0}
+.tracks li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:baseline}
+.tracks li::before{counter-increment:track;content:counter(track);color:var(--ink-soft)}
+.tracks .plays{color:var(--ink-soft);white-space:nowrap}
+.tracks .by{display:block;font-size:1rem;color:var(--ink-soft);overflow-wrap:anywhere}
+.check{display:flex;gap:8px;align-items:center;margin:8px 0}
+#musicSettings .btn{min-height:40px;margin-top:4px}
 .pacebox{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
 .pacecard{background:var(--tile);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .pacecard > span:first-child{white-space:nowrap}
