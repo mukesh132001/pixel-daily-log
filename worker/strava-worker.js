@@ -1,4 +1,4 @@
-// Pixel daily log: Strava helper and GitHub proxy, running on Cloudflare Workers.
+// Pixel daily log: Strava helper, GitHub proxy and Last.fm proxy, running on Cloudflare Workers.
 //
 // Why this exists: Strava gives your app a Client Secret, and GitHub allows far more requests with a token.
 // Neither can live in the public website, so this tiny server keeps them and does the private steps:
@@ -8,14 +8,17 @@
 //   POST /deauthorize  disconnect Strava
 //   GET/POST /webhook  Strava's webhook endpoint (required by Strava's API terms)
 //   GET  /github/...   the few GitHub API calls the site makes, with our token, cached for 10 minutes
+//   GET  /lastfm/...   the two Last.fm calls the site makes (recent plays, profile), with our key, cached 5 minutes
+//                      for today and a day for earlier days
 //
 // Settings in Cloudflare (Worker > Settings > Variables and Secrets):
 //   STRAVA_CLIENT_ID      Text    your Client ID (289322)
 //   STRAVA_CLIENT_SECRET  Secret  your Client Secret from strava.com/settings/api
 //   WEBHOOK_VERIFY_TOKEN  Secret  any random word you choose (only needed for webhooks)
 //   GITHUB_TOKEN          Secret  a GitHub token (public read access is enough). Never print or log it.
+//   LASTFM_API_KEY        Secret  your Last.fm API key (last.fm/api). Never print or log it, and never put it in a cache key.
 //
-// This worker stores nothing except public GitHub answers in Cloudflare's cache for 10 minutes.
+// This worker stores nothing except public GitHub and Last.fm answers in Cloudflare's cache.
 // Strava tokens live only in each visitor's own browser.
 
 // The live site, plus local testing: python's http.server (8000) and VS Code's Live Server (5500).
@@ -29,6 +32,11 @@ const ALLOWED_ORIGINS = [
 const STRAVA = "https://www.strava.com";
 const GITHUB = "https://api.github.com";
 const GITHUB_CACHE_SECONDS = 600;
+const LASTFM = "https://ws.audioscrobbler.com/2.0/";
+const LASTFM_TODAY_SECONDS = 300;        // plays from today (or the last hour of yesterday, which may still be syncing)
+const LASTFM_PAST_SECONDS = 86400;       // plays from earlier days don't change
+const LASTFM_NOW_SECONDS = 60;           // "now playing" has to stay fresh
+const LASTFM_USER = /^[A-Za-z][A-Za-z0-9_-]{1,14}$/;   // Last.fm usernames: 2 to 15 letters, numbers, _ and -
 
 // The only GitHub calls we pass on: exactly the ones js/github.js makes.
 // path: a pattern for everything after /github/; query: the parameters allowed (small whole numbers only).
@@ -37,6 +45,17 @@ const GITHUB_ROUTES = [
   { path: /^users\/[A-Za-z0-9-]{1,39}\/events\/public$/, query: ["per_page", "page"] },                     // public activity
   { path: /^repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}\/commits\/[0-9a-f]{7,40}$/, query: [] }        // one commit
 ];
+
+// The only Last.fm calls we pass on (both read-only, public data), as /lastfm/<name>?<query>.
+//   recent: user.getRecentTracks for one stretch of time (from, to: seconds since 1970, at most 25 hours apart).
+//           limit is 1 (just to count the plays) or 200; page is 1 to 10.
+//   now:    user.getRecentTracks, only the newest play (is something playing right now?)
+//   info:   user.getInfo, to check a username exists
+const LASTFM_ROUTES = {
+  recent: { method: "user.getrecenttracks", query: ["user", "from", "to", "limit", "page"] },
+  now: { method: "user.getrecenttracks", query: ["user"], fixed: { limit: "1" } },
+  info: { method: "user.getinfo", query: ["user"] }
+};
 
 export default {
   async fetch(request, env, ctx) {
@@ -105,6 +124,10 @@ export default {
 
       if (url.pathname.startsWith("/github/") && request.method === "GET") {
         return await githubRequest(url, env, ctx, cors, json);
+      }
+
+      if (url.pathname.startsWith("/lastfm/") && request.method === "GET") {
+        return await lastfmRequest(url, env, ctx, cors, json);
       }
 
       if (url.pathname === "/deauthorize" && request.method === "POST") {
@@ -194,4 +217,86 @@ function withCors(response, cors, status) {
   Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
   out.headers.set("X-Proxy-Cache", status);
   return out;
+}
+
+// Pass one allowed Last.fm call on with our API key. The key is only ever added to the request we send to Last.fm:
+// it is not in the cache key, not in the answer, and not in any error. We send back a trimmed copy of the answer
+// (only what the page uses), cached at Cloudflare. X-Proxy-Cache says HIT or MISS, for checking.
+async function lastfmRequest(url, env, ctx, cors, json) {
+  const name = url.pathname.slice("/lastfm/".length);
+  const route = Object.hasOwn(LASTFM_ROUTES, name) ? LASTFM_ROUTES[name] : null;
+  if (!route) return json({ error: "not allowed" }, 403);
+
+  // Check every parameter, then rebuild the query in a fixed order (this is also the cache key).
+  for (const k of url.searchParams.keys()) if (!route.query.includes(k)) return json({ error: "not allowed" }, 403);
+  const user = url.searchParams.get("user") || "";
+  if (!LASTFM_USER.test(user)) return json({ error: "bad username" }, 400);
+  const q = new URLSearchParams({ user: user.toLowerCase() });
+
+  let seconds = LASTFM_NOW_SECONDS;
+  if (name === "recent") {
+    const from = url.searchParams.get("from"), to = url.searchParams.get("to");
+    const limit = url.searchParams.get("limit") || "200", page = url.searchParams.get("page") || "1";
+    if (!/^\d{10}$/.test(from || "") || !/^\d{10}$/.test(to || "") || Number(to) < Number(from) || Number(to) - Number(from) > 90000) return json({ error: "bad time" }, 400);
+    if (!["1", "200"].includes(limit) || !/^([1-9]|10)$/.test(page)) return json({ error: "bad page" }, 400);
+    q.set("from", from); q.set("to", to); q.set("limit", limit); q.set("page", page);
+    // Today's plays can still change; a day that ended more than an hour ago won't.
+    seconds = Number(to) < Date.now() / 1000 - 3600 ? LASTFM_PAST_SECONDS : LASTFM_TODAY_SECONDS;
+  } else if (name === "info") {
+    seconds = LASTFM_PAST_SECONDS;
+  }
+  if (!env.LASTFM_API_KEY) return json({ error: "lastfm key not set" }, 503);
+
+  // The cache key is a made-up address with no API key in it. (If the cache isn't available, we skip it.)
+  const cache = caches.default;
+  const key = new Request(`https://lastfm.cache.invalid/${name}?${q}`);
+  const hit = await cache.match(key).catch(() => null);
+  if (hit) return withCors(hit, cors, "HIT");
+
+  const params = new URLSearchParams({ method: route.method, format: "json", ...(route.fixed || {}) });
+  for (const [k, v] of q) params.set(k, v);
+  params.set("api_key", env.LASTFM_API_KEY);
+  const r = await fetch(`${LASTFM}?${params}`, { headers: { "User-Agent": "pixel-daily-log-worker" } });
+  const d = await r.json().catch(() => null);
+
+  // Last.fm reports problems as { error: <number> }, sometimes with an ordinary 200. Pass on only our own words.
+  if (!d || d.error || !r.ok) {
+    const code = d && d.error;
+    const [status, error] = code === 6 ? [404, "user not found"]
+      : code === 17 ? [403, "private"]                  // the person hides their listening history
+      : code === 29 ? [429, "rate limited"]
+      : code === 10 || code === 26 ? [503, "lastfm key problem"]
+      : r.status === 429 ? [429, "rate limited"]
+      : [502, "lastfm error"];
+    return new Response(JSON.stringify({ error }), { status, headers: { ...cors, "Content-Type": "application/json", "X-Proxy-Cache": "MISS" } });
+  }
+
+  const body = JSON.stringify(name === "info" ? slimLastfmInfo(d) : slimLastfmTracks(d));
+  const fresh = new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${seconds}` } });
+  ctx.waitUntil(cache.put(key, fresh.clone()).catch(() => {}));
+  return withCors(fresh, cors, "MISS");
+}
+
+const clip = v => String(v == null ? "" : v).slice(0, 120);
+
+// { total, page, pages, now: { n, a } or null, tracks: [{ n: name, a: artist, t: seconds since 1970 }] }
+// "Now playing" has no time, so it's kept apart from the finished plays.
+function slimLastfmTracks(d) {
+  const rt = d.recenttracks || {};
+  const list = Array.isArray(rt.track) ? rt.track : rt.track ? [rt.track] : [];   // one track comes as an object, not a list
+  const at = rt["@attr"] || {};
+  let now = null;
+  const tracks = [];
+  list.forEach(t => {
+    const track = { n: clip(t.name), a: clip(t.artist && (t.artist["#text"] || t.artist.name)) };
+    if (t["@attr"] && t["@attr"].nowplaying === "true") now = track;
+    else tracks.push({ ...track, t: Number(t.date && t.date.uts) || 0 });
+  });
+  return { total: Number(at.total) || 0, page: Number(at.page) || 1, pages: Number(at.totalPages) || 1, now, tracks };
+}
+
+// { name, playcount }
+function slimLastfmInfo(d) {
+  const u = d.user || {};
+  return { name: clip(u.name), playcount: Number(u.playcount) || 0 };
 }
