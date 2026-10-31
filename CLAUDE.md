@@ -41,6 +41,7 @@ supabase/profiles.sql  the profiles table + Row Level Security; Muki pastes it i
 privacy.html        what's saved and how to delete it
 js/github.js        GitHub REST API + community contributions API
 js/strava.js        Strava OAuth flow, tokens (in localStorage), activities via the worker
+js/lastfm.js        Last.fm through the worker (/lastfm/): a day's plays, top artist and top 3 tracks, now playing, browser-cached like github.js. The Music card and calendar notes live in main.js; the record player is a today prop
 js/scene.js         the 192x108 pixel canvas: sprites, phases (dawn/day/dusk/night), particles
 js/room.js          the 256x256 isometric room, built from sprites/room/room_manifest.json (+ character + pennant), drawn at whole device pixels (2x, 3x on big screens) with a camera that follows the character when it doesn't fit. Its own screen at #room (routing in main.js). Arrow keys/WASD walk (up = up-right), a touch pad on phones, click to walk, wanders when idle. Items show by room level (from XP, see xp.js) and new ones drop in after a level up; the closet (E/Enter) opens the picker with every character, the big door leads to the pet room (#pets) once you've had a 7-day streak (otherwise it says how far you are). One engine, two rooms: enter() switches to the pet room (sprites/petroom/), which has real pets. Seasonal events (EVENTS) add decor while their dates are on, and today's activity shows (see roomtoday.js)
 js/pets.js          pets in the pet room: spots, small hops, tail wag/blink/eat/sleep frames, click-for-heart. Pure logic, no DOM
@@ -64,7 +65,7 @@ js/icons.js         8x8 pixel SVG icons (shoe, laptop, flame, star, tape)
 js/dates.js         date helpers and the 4-week window
 js/storage.js       safe localStorage wrapper
 js/sound.js         Web Audio beeps (muted by default)
-worker/strava-worker.js   Cloudflare Worker: holds the Strava secret and GITHUB_TOKEN, proxies Strava calls and an allowlist of GitHub calls
+worker/strava-worker.js   Cloudflare Worker: holds the Strava secret, GITHUB_TOKEN and LASTFM_API_KEY, proxies Strava calls and allowlists of GitHub and Last.fm calls
 ```
 
 Test locally (modules need a server, double-clicking index.html won't work):
@@ -72,12 +73,13 @@ Test locally (modules need a server, double-clicking index.html won't work):
 cd ~/Downloads/pixel-daily-log
 python3 -m http.server 8000   # open http://localhost:8000, Ctrl + C to stop
 ```
-Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, ?dev&xp=500 fakes your XP total for the visit, ?dev&event=halloween (or none) forces an event on or off, and ?dev&today=coded|ran|both|none previews your day (&hour=22 for the zzz, &streak=7 for the candle), and ?dev&pets=all|none gives you every pet or none (and opens the pet room's door). Nothing is saved.
+Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, ?dev&xp=500 fakes your XP total for the visit, ?dev&event=halloween (or none) forces an event on or off, and ?dev&today=coded|ran|both|none previews your day (&hour=22 for the zzz, &streak=7 for the candle), and ?dev&pets=all|none gives you every pet or none (and opens the pet room's door), ?dev&lastfm=demo fills the Music card with made-up plays, and ?dev&today=music previews the record player. Nothing is saved.
 
 ## Rules you must follow
 
-- **Never put secrets in the repo.** The Strava Client Secret and `GITHUB_TOKEN` live only in Cloudflare (Worker > Settings > Variables and Secrets). Never print, log or commit them. `js/config.js` holds public values only. Never ask for or use Supabase's service_role (secret) key; the site only uses the public anon key, and Row Level Security does the protecting.
+- **Never put secrets in the repo.** The Strava Client Secret, `GITHUB_TOKEN` and `LASTFM_API_KEY` live only in Cloudflare (Worker > Settings > Variables and Secrets). Never print, log or commit them. `js/config.js` holds public values only. Never ask for or use Supabase's service_role (secret) key; the site only uses the public anon key, and Row Level Security does the protecting.
 - Only the fields in `CLOUD_FIELDS` (js/profile.js) go to an account. Strava tokens and runs never do. If you add a profile field that should sync, add it there and to privacy.html.
+- The Last.fm proxy only passes on `LASTFM_ROUTES` (worker: recent plays, now playing, profile), adds the API key itself, and never puts it in a cache key or an answer. Your `lastfm` username and `lastfmShare` are in `CLOUD_FIELDS`; "Copy link" carries `?lastfm=` only when `lastfmShare` is on.
 - The GitHub proxy only passes on the calls in `GITHUB_ROUTES` (worker). If js/github.js starts calling a new GitHub endpoint, add it there too, or it silently falls back to direct calls.
 - **Worker changes don't deploy with git.** After editing `worker/strava-worker.js`, tell Muki to paste the whole file into the Cloudflare editor and click Deploy (`cat worker/strava-worker.js | pbcopy` copies it).
 - The worker only accepts requests from `https://mukesh132001.github.io`, `http://localhost:8000` and Live Server's `http://localhost:5500` / `http://127.0.0.1:5500` (see `ALLOWED_ORIGINS`).

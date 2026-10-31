@@ -7,13 +7,14 @@ What you did today shows up in your room (js/room.js reads `today_manifest.json`
 | Monitor glow + scrolling green lines | 1+ GitHub contribution (or a push) today; brighter on contribution levels 1 to 4 | the screen on `desk.png` (`screen` in the manifest) |
 | Running shoes | a run today | floor, at the foot of the bed |
 | Water bottle | a run today | on the desk |
+| Record player + floating music notes | a Last.fm play today (see the Music card) | on the floor, in front of the desk |
 | Medal | a run of 3.1+ mi (5 km) today | left wall |
 | Candle with the streak number | a 3+ day streak | on the bookshelf, or on the closet before the bookshelf unlocks |
 | zzz bubble | nothing logged today, after 9pm | over the character |
 | Sparkle | coded and ran today | near the character, now and then |
 
 Nothing logged yet today: the room is a bit dimmer and the idle animation is slower.
-With reduced motion, the props stay but nothing scrolls, flickers, sparkles or bobs.
+With reduced motion, the props stay and things move more slowly (the code lines, the zzz, the music notes); nothing flickers or sparkles.
 
 ## Swapping in your own art
 

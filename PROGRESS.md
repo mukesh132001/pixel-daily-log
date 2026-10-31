@@ -87,6 +87,14 @@ Last updated: Saturday, Oct 31, 2026. Update this file whenever a pull request i
   - dev: `?dev&pets=all` (every pet, door open) and `?dev&pets=none`, nothing saved
   - **rooms-polish** (done): both rooms scale to the largest whole number that fits (`measure`/`rescale` in room.js, camera only when the art does not fit: 2x with camera at 375 wide, 3x at 768 and 1280, more on big screens); the "Level up!" banner and bubbles are centred (`.px` margin removed); pets redrawn natively at **21x21** in `tools/petpack/gen.py` (hand-placed faces, round sleeping curl, shared feet row 19, `pets.json` now has `feetX`/`feetY`), so they sit about knee-to-waist next to Leo. If the pet size changes again, update `PET_FRAME` in js/pets.js and in tools/dogroom/export_room.py, then re-run the exporters
 - **Also on `small-fixes` (not merged yet):** run cycle polish in scene.js (1px bounce on run frames 1 and 3, about 100-120 ms a frame, dust only on stride frames 0 and 2); **reduced motion now slows things down** (scene, rooms, pets, picker) and only drops flashy bits (star twinkle, flame flicker, sparkles, bursts, wipes); the old layered character code, `gallery.html` and the `character` profile field were removed; README rewritten. The card-lists fix was already done in PR 10.
+- **Also on `lastfm` (not merged yet): the Music card.** Needs the Worker redeployed (it has a new `/lastfm/` route) and the `LASTFM_API_KEY` secret (added):
+  - **worker:** `GET /lastfm/recent|now|info` pass on only `user.getRecentTracks` and `user.getInfo`, every parameter checked, the key added server-side and never in a cache key, answer or error; trimmed answers cached 5 min for today (and the first hour after midnight), 1 day for earlier days, 60 s for now playing; same CORS rules as `/github/`
+  - **profile:** optional `lastfm` username and `lastfmShare` (does "Copy link" carry `?lastfm=`?), both in `CLOUD_FIELDS` and merged across devices; privacy.html explains it
+  - **js/lastfm.js:** day ranges in your time zone, browser cache (5 min today, 1 day earlier, saved data used when Last.fm is busy), `summarize()` for top artist and top 3 tracks
+  - **Music card:** plays, top artist, top 3 tracks, "Now playing" (today only), the empty state with the how-to and username box, settings (share switch, disconnect), friendly messages (unknown user, hidden history, busy)
+  - **calendar:** a small music note on days with plays (counts fill in newest first, 3 at a time) and the tooltip says how many
+  - **room:** a record player (placeholder in `roomtoday.js`, swappable via `sprites/today/today_manifest.json`) with three floating notes on days with plays; reduced motion slows them
+  - dev: `?dev&lastfm=demo` (made-up plays), `?dev&today=music`
 
 
 ## 🧭 Decisions we made
