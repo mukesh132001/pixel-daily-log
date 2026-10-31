@@ -22,8 +22,33 @@ export const pace = run => formatPace(paceValue(run));
 
 export const totalMiles = runs => runs.reduce((s, r) => s + (r.mi || 0), 0);
 
-// Only real runs count toward pace: walks and rides would skew it.
-export const isRun = r => (r.type || "run") === "run";
+// What kind of activity: "run", "walk", "ride", or "workout" (yoga, weights, stair stepper, anything else).
+// Hand-logged entries have no type and are runs.
+export const kindOf = r => { const t = r.type || "run"; return t === "run" || t === "walk" || t === "ride" ? t : "workout"; };
+
+// Only real runs count toward pace and weekly distance: walks and rides would skew them.
+export const isRun = r => kindOf(r) === "run";
+
+export const KIND_ICON = { run: "shoe", walk: "walk", ride: "bike", workout: "dumbbell" };
+// The kind that stands for a whole day, when it has several.
+export const dayKind = runs => ["run", "ride", "walk", "workout"].find(k => runs.some(r => kindOf(r) === k)) || null;
+
+// Miles of real runs only (the weekly bars and the 4-week total).
+export const runMiles = runs => totalMiles(runs.filter(isRun));
+
+// Strava's "StairStepper" -> "Stair Stepper"
+export const sportLabel = sport => String(sport || "").replace(/([a-z])([A-Z])/g, "$1 $2");
+
+// "Lunch Run, 3.1 mi" or, for a workout, "Morning Stair-Stepper, 32 min". A workout whose name doesn't
+// say what it was gets its type added: "Leg day (Weight Training), 45 min".
+export function describe(r) {
+  const kind = kindOf(r);
+  let name = r.name || (kind === "workout" ? sportLabel(r.sport) || "Workout" : "Run");
+  const squash = s => s.toLowerCase().replace(/[^a-z]/g, "");
+  if (kind === "workout" && r.sport && r.name && !squash(r.name).includes(squash(sportLabel(r.sport)))) name += ` (${sportLabel(r.sport)})`;
+  if (kind === "workout") return r.min >= 1 ? `${name}, ${Math.round(r.min)} min` : name;
+  return `${name}, ${r.mi.toFixed(1)} mi`;
+}
 
 // Average pace over several runs, weighted by distance.
 export function averagePace(runs) {

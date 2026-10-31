@@ -4,6 +4,9 @@
 const ICONS = {
   laptop: { rows: ["........", ".######.", ".#ssss#.", ".#ssss#.", ".######.", "########", "########", "........"], colors: { "#": "var(--ink)", s: "var(--code)" } },
   shoe:   { rows: ["........", "..##....", "..#rr#..", "..#rrr#.", ".#rrrrr#", "#rrrrrr#", "wwwwwwww", "........"], colors: { "#": "var(--ink)", r: "var(--run)", w: "var(--ink-soft)" } },
+  walk:   { rows: ["...rr...", "...rr...", "..rrrr..", ".r.rr.r.", "...rr...", "..r..r..", ".r....r.", ".rr..rr."], colors: { r: "var(--run)" } },
+  bike:   { rows: ["........", "....rr..", "...r.r..", ".#rrrr#.", "#.#..#.#", "#.#..#.#", "#.#..#.#", ".#....#."], colors: { "#": "var(--ink)", r: "var(--run)" } },
+  dumbbell: { rows: ["........", "#......#", "##....##", "###bb###", "###bb###", "##....##", "#......#", "........"], colors: { "#": "var(--ink)", b: "var(--ink-soft)" } },
   note:   { rows: ["....#...", "....##..", "....#.#.", "....#...", "....#...", "..###...", ".####...", "..##...."], colors: { "#": "var(--music)" } },
   tape:   { rows: ["........", "########", "#mmmmmm#", "#m#mm#m#", "#mmmmmm#", "########", "........", "........"], colors: { "#": "var(--ink)", m: "var(--music)" } },
   flame:  { rows: ["...f....", "..ff....", "..fff.f.", ".fffyff.", ".ffyyff.", ".fyyyyf.", "..fyyf..", "........"], colors: { f: "var(--run)", y: "var(--accent)" } },

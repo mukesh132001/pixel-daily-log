@@ -11,6 +11,7 @@ const WORKER = WORKER_URL.replace(/\/+$/, "");
 
 const RUN_TYPES = ["Run", "TrailRun", "VirtualRun"];
 const WALK_TYPES = ["Walk", "Hike"];
+const RIDE_TYPES = ["Ride", "MountainBikeRide", "GravelRide", "EBikeRide", "EMountainBikeRide", "VirtualRide"];
 
 export const isConfigured = () => !!WORKER;
 export const getConnection = () => store.get(KEY, null);
@@ -141,14 +142,14 @@ export function toDays(activities) {
     const k = String(a.start_date_local || "").slice(0, 10);
     if (!k) return;
     const sport = a.sport_type || "Workout";
-    const type = RUN_TYPES.includes(sport) ? "run" : WALK_TYPES.includes(sport) ? "walk" : "other";
+    const type = RUN_TYPES.includes(sport) ? "run" : WALK_TYPES.includes(sport) ? "walk" : RIDE_TYPES.includes(sport) ? "ride" : "workout";
     (byDay[k] = byDay[k] || []).push({
       id: a.id,
       name: a.name || sport,
       sport,
       type,
       mi: Math.round((a.distance || 0) / 1609.344 * 100) / 100,
-      min: (a.moving_time || 0) / 60 || null,
+      min: (a.moving_time || a.elapsed_time || 0) / 60 || null,   // yoga and weights often have no "moving" time
       hour: parseInt(String(a.start_date_local || "").slice(11, 13), 10),
       source: "strava"
     });

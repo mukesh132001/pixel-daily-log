@@ -82,7 +82,7 @@ pixel-daily-log/
 │   ├── github.js       GitHub REST API and contribution levels
 │   ├── strava.js       Strava login, tokens and activities
 │   ├── lastfm.js       Last.fm plays, top artist and tracks, through the worker
-│   ├── runs.js         runs logged by hand, and pace math
+│   ├── runs.js         runs logged by hand, pace math, and what kind of activity each is
 │   ├── art.js          the school pennant
 │   └── dates.js, font.js, icons.js, sound.js, storage.js   small helpers
 ├── sprites/            room, pet room, characters, pets, events and today art
