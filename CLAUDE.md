@@ -51,7 +51,7 @@ js/roomfloor.js     the room's 10x10 tile floor in manifest world units (x along
 js/characters.js    the character roster: id, display name, sprite paths, unlock rule (id is saved, name can change)
 js/picker.js        character select: one big front-facing character, arrows, silhouettes for locked ones
 sprites/characters/ Muki's own character pack (OK to commit): side sheets and front idles, 32x40 frames, feet on row 35
-js/art.js           the school pennant, plus the OLD layered character (only gallery.html uses it now)
+js/art.js           the school pennant (drawPennant, cleanSchool). The old layered character and gallery.html were removed
 js/font.js          the A-Z pixel font
 sprites/room/       Pixmod's own room art (OK to commit): room_shell.png, one PNG per item, room_manifest.json (positions, layers, depthY, blockedTiles, interact, unlockLevel) and README.md (the rules room.js follows). Raw packs in assets/ and art-packs/ are git-ignored, never commit them
 sprites/events/<id>/  seasonal decor (OK to commit): <id>_manifest.json with active dates (month-day, local, can wrap past New Year), banner text, items (same rules as the room; `replaces` hides a base piece). Add the id to EVENTS in room.js
