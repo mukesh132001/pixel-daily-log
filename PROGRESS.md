@@ -100,7 +100,7 @@ Last updated: Friday, Oct 30, 2026. Update this file whenever a pull request is 
 - **Character select:** one **big front-facing character** looking at the player, with a small idle animation, arrows to switch starters, and live skin/hair/shirt options. Nothing else on that screen.
 - **Focus:** make **one beautiful room** first, then add features.
 - **Working with Claude Code:** Sonnet 5.5 for building, Opus for big planning, `/clear` between pull requests, manual mode while learning.
-- **Characters are picked and unlocked, not built.** The layered "build your character" art (`js/art.js`) is off the main page; only `gallery.html` uses it.
+- **Characters are picked and unlocked, not built.** The old layered "build your character" art, `gallery.html` and the `character` profile field were removed (small-fixes); `js/art.js` keeps only the school pennant.
 - **Rain Runner:** Strava's activity list has no weather, so it unlocks with 3 runs in one week for now. Real rain would need a weather API by date and place.
 - **Night Owl:** GitHub's public feed gives push times, not commit times, so a late-night push counts.
 - **Name:** "Pixmod" is a working name. Check GitHub, domains and trademarks before renaming.

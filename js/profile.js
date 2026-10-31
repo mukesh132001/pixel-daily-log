@@ -20,7 +20,6 @@ const newId = () => "p_" + Array.from(crypto.getRandomValues(new Uint8Array(12))
 //   levelSeen: the last room level we celebrated, so each level up gets one "Level up!"
 //   pets:      { have: { shiba: ["2026-10-30", 0] }, room: ["shiba"] }   adopted pets (day, XP paid) and who's in the room
 //   eventsSeen: { halloween: 2026 }   the last year each seasonal banner was shown ("Happy Halloween!")
-//   character: the old layered look from art.js. Only gallery.html still uses it.
 export function newProfile(fields = {}) {
   return {
     v: 1,
@@ -31,7 +30,6 @@ export function newProfile(fields = {}) {
     characterId: "leo",
     unlocked: {},
     log: { days: [], best: 0 },
-    character: null,
     pet: null,
     github: null,
     xp: { days: {}, older: 0 },
