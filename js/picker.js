@@ -66,7 +66,7 @@ export function createPicker(els, onChoose) {
     show(Math.max(0, ROSTER.findIndex(c => c.id === currentId)));
     (els.go.hidden ? els.next : els.go).focus();
     frame = 0;
-    if (!reduced) timer = setInterval(() => { frame = (frame + 1) % 4; draw(); }, FRAME_MS.idle);
+    timer = setInterval(() => { frame = (frame + 1) % 4; draw(); }, FRAME_MS.idle * (reduced ? 2.5 : 1));
   }
 
   els.dialog.addEventListener("close", () => { clearInterval(timer); timer = null; });

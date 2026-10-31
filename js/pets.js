@@ -4,7 +4,7 @@
 // Pet art is sprites/pets/sheets/<id>.png: 8 frames of 21x21, with no walk cycle. So a pet doesn't walk: it moves
 // between the room's spots (sprites/petroom/petroom_manifest.json, "petSpots") with a small hop, and at each spot it
 // does one thing: sit (tail wag and blinks), eat at the bowl, or sleep on a bed.
-// Reduced motion: pets stay where they are with their first frame (no wag, blink, hop or wandering).
+// Reduced motion: the same things, only slower (wag, hops, wandering), with no blinking.
 
 import { toScreen } from "./roomfloor.js";
 
@@ -24,6 +24,7 @@ const HAPPY_MS = 1400;              // the heart after you click a pet
 
 // spots: petSpots from the manifest. depthOf(itemId): that item's depthY, for pets that sit on or in front of it.
 export function createPetLife(spots, { rand = Math.random, reduced = false, depthOf = () => 0 } = {}) {
+  const slow = reduced ? 2.5 : 1;   // reduced motion: the same things, slower, with no blinking
   let pets = [];
   const spotById = Object.fromEntries(spots.map(s => [s.id, s]));
   const between = ([a, b]) => a + rand() * (b - a);
@@ -61,10 +62,10 @@ export function createPetLife(spots, { rand = Math.random, reduced = false, dept
   function frameFor(pet, now) {
     if (pet.to) return FRAMES.sitA;                    // mid-hop
     if (now < pet.happyUntil) return FRAMES.happy;
-    const spot = here(pet), tick = Math.floor((now + pet.phase) / (spot.pose === "eat" ? EAT_MS : spot.pose === "sleep" ? SLEEP_MS : WAG_MS)) % 2;
-    if (spot.pose === "eat") return reduced ? FRAMES.eatA : FRAMES.eatA + tick;
-    if (spot.pose === "sleep") return reduced ? FRAMES.sleepA : FRAMES.sleepA + tick;
-    if (reduced) return FRAMES.sitA;
+    const spot = here(pet), tick = Math.floor((now + pet.phase) / (slow * (spot.pose === "eat" ? EAT_MS : spot.pose === "sleep" ? SLEEP_MS : WAG_MS))) % 2;
+    if (spot.pose === "eat") return FRAMES.eatA + tick;
+    if (spot.pose === "sleep") return FRAMES.sleepA + tick;
+    if (reduced) return FRAMES.sitA + tick;
     if (now >= pet.nextBlink) { pet.blinkUntil = now + BLINK_MS; pet.nextBlink = now + BLINK_MS + between(BLINK_EVERY); }
     return now < pet.blinkUntil ? FRAMES.blink : FRAMES.sitA + tick;
   }
@@ -77,14 +78,14 @@ export function createPetLife(spots, { rand = Math.random, reduced = false, dept
         pet.spot = pet.to; pet.to = pet.from = null;
         pet.nextMove = now + between(MOVE_EVERY);
         changed = true;
-      } else if (!pet.to && !reduced && now >= pet.nextMove) {
+      } else if (!pet.to && now >= pet.nextMove) {
         const options = choices(pet);
         if (!options.length) pet.nextMove = now + 2000;        // everywhere's busy: try again soon
         else {
           const target = pick(options), a = here(pet);
           pet.from = pet.spot; pet.to = target.id;
           pet.hops = Math.max(1, Math.round(Math.hypot(target.x - a.x, target.y - a.y) / HOP_UNITS));
-          pet.hopMs = pet.hops * HOP_MS;
+          pet.hopMs = pet.hops * HOP_MS * slow;
           pet.hopAt = now;
         }
       }

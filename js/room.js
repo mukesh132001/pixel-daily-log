@@ -111,7 +111,10 @@ export function createRoom(canvas, els) {
   const view = canvas.getContext("2d");           // what you see: the size of the room area, in device pixels
   let k = 2;                                      // device pixels per room pixel
 
+  // Reduced motion slows things down (SLOW times) instead of freezing them; only the flashy bits (the candle's
+  // flicker, the great-day sparkle) are left out.
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SLOW = reduced ? 2.5 : 1;
   const touch = matchMedia("(pointer: coarse)");
   let manifest = null, imgs = null, masks = {}, sprites = null, wanted = null;
   let roomManifest = null, petManifest = null, world = "room";   // which room we're in; manifest is that room's
@@ -216,11 +219,11 @@ export function createRoom(canvas, els) {
     if (it.label === "streak") drawTag(String(today.streak), it.x + it.w + 2, it.y + it.h - 6);   // resting beside it
   }
 
-  // A coding day: the monitor's screen lights up with green code lines that scroll up (still with reduced
+  // A coding day: the monitor's screen lights up with green code lines that scroll up (slower with reduced
   // motion), brighter on bigger days, with a soft glow over the bezel. The screen leans like the wall, so each
   // column is its own span of rows, and the lines lean with it.
   function drawScreen(sc) {
-    const look = SCREEN_LOOKS[today.level - 1], scroll = reduced ? 0 : Math.floor(performance.now() / SCROLL_MS);
+    const look = SCREEN_LOOKS[today.level - 1], scroll = Math.floor(performance.now() / (SCROLL_MS * SLOW));
     sc.columns.forEach(([top, bottom], c) => {
       const x = sc.x + c;
       px(x, sc.y + top, 1, bottom - top + 1, look.bg);
@@ -244,7 +247,7 @@ export function createRoom(canvas, els) {
   // A new piece falls from 12 pixels up, then bounces once. Whole pixels, so it stays crisp.
   function popOffset(id) {
     if (!pops.has(id)) return 0;
-    const t = (performance.now() - pops.get(id)) / POP_MS;
+    const t = (performance.now() - pops.get(id)) / (POP_MS * SLOW);
     if (t >= 1) { pops.delete(id); return 0; }
     if (t < 0.6) return -Math.round(12 * (1 - t / 0.6) ** 2);
     return -Math.round(3 * Math.sin((t - 0.6) / 0.4 * Math.PI));
@@ -285,7 +288,7 @@ export function createRoom(canvas, els) {
     }
     const feet = toScreen(me.at.x, me.at.y), fx = Math.round(feet.x), fy = Math.round(feet.y);
     if (today.night && !me.walking && sprites && todayCfg && todayCfg.zzz && todayCfg.zzz.frames.length) {
-      const z = todayCfg.zzz, bob = reduced ? 0 : Math.floor(performance.now() / 700) % 2;
+      const z = todayCfg.zzz, bob = Math.floor(performance.now() / (700 * SLOW)) % 2;
       ctx.drawImage(imgs[z.frames[0]], fx + z.dx, fy + z.dy - bob);
     }
     if (spark) {
@@ -399,14 +402,14 @@ export function createRoom(canvas, els) {
     if (kx || ky) {
       keysAt = now;
       me.path = [];
-      const n = Math.hypot(kx, ky), step = SPEED * dt;
+      const n = Math.hypot(kx, ky), step = SPEED * dt / SLOW;
       const to = floor.move(me.at, kx / n * step, ky / n * step);
       face(kx, ky);
       if (to !== me.at) { me.at = to; startWalking(now); }
       else stopWalking(now);   // walking into a wall: stand and face it
       dirty = true;
     } else if (me.path.length) {
-      let step = SPEED * dt;
+      let step = SPEED * dt / SLOW;
       while (step > 0 && me.path.length) {
         const to = me.path[0], dx = to.x - me.at.x, dy = to.y - me.at.y, d = Math.hypot(dx, dy);
         face(dx, dy);
@@ -417,25 +420,25 @@ export function createRoom(canvas, els) {
       dirty = true;
     } else {
       if (me.walking) { stopWalking(now); rest(now); dirty = true; }
-      if (!reduced && now >= me.restUntil && now - keysAt >= KEYS_REST_MS) {
+      if (now >= me.restUntil && now - keysAt >= KEYS_REST_MS) {
         const spot = floor.randomSpot(me.at);
         if (!spot || !walkTo(spot)) rest(now);
       }
     }
 
-    const ms = me.walking ? FRAME_MS.walk : FRAME_MS.idle * (today.quiet ? QUIET_IDLE : 1);
-    if ((me.walking || !reduced) && now - me.frameAt >= ms) {
+    const ms = (me.walking ? FRAME_MS.walk : FRAME_MS.idle * (today.quiet ? QUIET_IDLE : 1)) * SLOW;
+    if (now - me.frameAt >= ms) {
       me.frame = (me.frame + 1) % 4;
       me.frameAt = now;
       dirty = true;
     }
   }
 
-  // The camera looks at the character's middle and catches up smoothly (instantly with reduced motion).
+  // The camera looks at the character's middle and catches up smoothly (more slowly with reduced motion).
   function follow(dt) {
     const feet = toScreen(me.at.x, me.at.y), tx = feet.x, ty = feet.y - 15;
-    if (!cam.set || reduced) { cam.x = tx; cam.y = ty; cam.set = true; return; }
-    const a = 1 - Math.exp(-CAMERA_EASE * dt);
+    if (!cam.set) { cam.x = tx; cam.y = ty; cam.set = true; return; }
+    const a = 1 - Math.exp(-CAMERA_EASE / SLOW * dt);
     cam.x += (tx - cam.x) * a;
     cam.y += (ty - cam.y) * a;
   }
@@ -505,14 +508,14 @@ export function createRoom(canvas, els) {
   }
 
   // Today's moving bits: a new sparkle now and then on a great day, and a redraw every 100 ms while
-  // something moves (the code lines, the candle flame, the zzz, a sparkle). Reduced motion: nothing moves.
+  // something moves (the code lines, the candle flame, the zzz, a sparkle). Reduced motion: slower, with no flicker or sparkle.
   function dayTick(now) {
-    if (reduced || world !== "room") return;
-    if (today.coded && today.ran && now >= nextSpark) {
+    if (world !== "room") return;
+    if (!reduced && today.coded && today.ran && now >= nextSpark) {
       if (nextSpark) spark = { at: now, dx: Math.round(Math.random() * 28 - 14), dy: -Math.round(20 + Math.random() * 22) };
       nextSpark = now + SPARK_EVERY[0] + Math.random() * (SPARK_EVERY[1] - SPARK_EVERY[0]);
     }
-    const moving = today.coded || today.night || spark || items.some(i => i.frames && i.frames.length > 1);
+    const moving = today.coded || today.night || spark || (!reduced && items.some(i => i.frames && i.frames.length > 1));
     const b = Math.floor(now / 100);
     if (moving && b !== beat) { beat = b; dirty = true; }
   }
@@ -638,9 +641,8 @@ export function createRoom(canvas, els) {
     if (manifest && world === "room") furnish();
   }
 
-  // Drop these pieces in (after a level up). Reduced motion: they're simply there.
+  // Drop these pieces in (after a level up), more slowly with reduced motion.
   function popIn(ids) {
-    if (reduced) return;
     const now = performance.now();
     ids.forEach(id => pops.set(id, now));
     dirty = true;
