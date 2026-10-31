@@ -51,6 +51,11 @@ const SHEETS_DIR = "sprites/pets/sheets/";
 const SCROLL_MS = 260;                // the code lines on the monitor move up one row this often
 const FLICKER_MS = 320;               // candle flame frames
 const SPARK_MS = 600;                 // one sparkle, start to finish
+const NOTE_MS = 3200;                 // a music note floats up from the record player this long
+const NOTE_RISE = 26;                 // and rises this many room pixels
+const NOTE_COLORS = ["#7a5fa8", "#e8737a", "#4f9cbf"];
+// a little eighth note, 5 wide and 8 tall
+const NOTE = ["..#..", "..##.", "..#.#", "..#..", "..#..", ".##..", "###..", ".#..."];
 const SPARK_EVERY = [2500, 5500];     // and a new one this often on a great day
 const QUIET_IDLE = 1.6;               // nothing logged yet: the idle animation plays this much slower
 const DIM = "rgba(40, 26, 52, 0.22)"; // and the room is a bit dimmer
@@ -291,6 +296,7 @@ export function createRoom(canvas, els) {
       const z = todayCfg.zzz, bob = Math.floor(performance.now() / (700 * SLOW)) % 2;
       ctx.drawImage(imgs[z.frames[0]], fx + z.dx, fy + z.dy - bob);
     }
+    if (today.music) drawNotes();
     if (spark) {
       const t = (performance.now() - spark.at) / SPARK_MS;
       if (t >= 1) spark = null;
@@ -300,6 +306,21 @@ export function createRoom(canvas, els) {
         px(x, y - size, 1, size * 2 + 1, "#ffd76b");
         px(x, y, 1, 1, "#fff8d6");
       }
+    }
+  }
+
+  // A day with plays: three music notes float up from the record player, one after the other, swaying a little.
+  // Reduced motion: the same, only slower (SLOW).
+  function drawNotes() {
+    const rp = items.find(i => i.id === "today_record_player");
+    if (!rp || !rp.notes) return;
+    const now = performance.now(), ms = NOTE_MS * SLOW;
+    for (let n = 0; n < 3; n++) {
+      const t = ((now / ms) + n / 3) % 1;
+      if (t > 0.9) continue;
+      const x = rp.x + rp.notes.dx + Math.round(Math.sin((t + n) * 6) * 3) + (n - 1) * 3;
+      const y = rp.y + rp.notes.dy - Math.round(t * NOTE_RISE);
+      NOTE.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === "#") px(x + c, y + r, 1, 1, NOTE_COLORS[n]); }));
     }
   }
 
@@ -508,14 +529,14 @@ export function createRoom(canvas, els) {
   }
 
   // Today's moving bits: a new sparkle now and then on a great day, and a redraw every 100 ms while
-  // something moves (the code lines, the candle flame, the zzz, a sparkle). Reduced motion: slower, with no flicker or sparkle.
+  // something moves (the code lines, the candle flame, the zzz, the music notes, a sparkle). Reduced motion: slower, with no flicker or sparkle.
   function dayTick(now) {
     if (world !== "room") return;
     if (!reduced && today.coded && today.ran && now >= nextSpark) {
       if (nextSpark) spark = { at: now, dx: Math.round(Math.random() * 28 - 14), dy: -Math.round(20 + Math.random() * 22) };
       nextSpark = now + SPARK_EVERY[0] + Math.random() * (SPARK_EVERY[1] - SPARK_EVERY[0]);
     }
-    const moving = today.coded || today.night || spark || (!reduced && items.some(i => i.frames && i.frames.length > 1));
+    const moving = today.coded || today.night || today.music || spark || (!reduced && items.some(i => i.frames && i.frames.length > 1));
     const b = Math.floor(now / 100);
     if (moving && b !== beat) { beat = b; dirty = true; }
   }

@@ -10,9 +10,10 @@ const LONG_RUN_MI = 3.1;   // 5 km
 const STREAK_CANDLE = 3;   // the candle shows from a 3-day streak
 const NIGHT_HOUR = 21;     // after 9pm with nothing logged, the character gets sleepy
 
-// day: { count (GitHub contributions), level (GitHub's 0-4), pushed (a push today), runs (runs and walks) }
+// day: { count (GitHub contributions), level (GitHub's 0-4), pushed (a push today), runs (runs and walks),
+//        plays (Last.fm plays today) }
 // streak: the current streak in days. hour: 0-23, the viewer's local time.
-export function todayState({ count = 0, level = 0, pushed = false, runs = [] } = {}, streak = 0, hour = new Date().getHours()) {
+export function todayState({ count = 0, level = 0, pushed = false, runs = [], plays = 0 } = {}, streak = 0, hour = new Date().getHours()) {
   const coded = count > 0 || pushed;
   const ran = runs.some(r => isRun(r) && (Number(r.mi) || 0) > 0);
   const quiet = !coded && !runs.some(r => (Number(r.mi) || 0) > 0);   // nothing logged yet (a walk counts)
@@ -20,6 +21,7 @@ export function todayState({ count = 0, level = 0, pushed = false, runs = [] } =
     coded,
     level: coded ? Math.max(1, Math.min(4, level || 1)) : 0,
     ran,
+    music: plays > 0,
     longRun: runs.some(r => isRun(r) && (Number(r.mi) || 0) >= LONG_RUN_MI),
     streak,
     quiet,
@@ -32,10 +34,11 @@ export const DEV_DAYS = {
   coded: { count: 6, level: 3 },
   ran: { runs: [{ mi: 4, type: "run" }] },
   both: { count: 12, level: 4, runs: [{ mi: 5, type: "run" }] },
+  music: { plays: 12 },
   none: {}
 };
 
-// Does a prop from today_manifest.json show? when: "ran", "longRun" or "streak".
+// Does a prop from today_manifest.json show? when: "ran", "music", "longRun" or "streak".
 // needs / without: a room piece that must (or must not) be in the room, like the bookshelf for the candle.
 export function propShows(prop, state, hasPiece) {
   const when = prop.when === "streak" ? state.streak >= STREAK_CANDLE : !!state[prop.when];
@@ -65,6 +68,8 @@ const COLORS = {
   r: "#e8737a", u: "#79c7e3", g: "#c9962f", y: "#f2c96b", Y: "#fff1b8",
   // candle: cream wax, warm flame, brass holder
   w: "#f4f0ea", W: "#d8cfc2", f: "#fff1b8", o: "#f2a33a", n: "#3d2e3f", p: "#c9962f", P: "#9c6f22",
+  // record player: warm wood, a black record with a coral label, a silver arm
+  m: "#b9824f", M: "#8a5a35", d: "#2d2635", v: "#5a4e66", a: "#d3ccdc",
   // zzz bubble
   l: "#fff8ee", L: "#7b6a7e", z: "#7a5fa8"
 };
@@ -121,6 +126,19 @@ export const PLACEHOLDERS = {
     ".wwW.",
     "ppppp",
     ".PPP."
+  ]],
+  recordPlayer: [[
+    "......aa........",
+    ".....aa.........",
+    "..vvvvvvvv.a....",
+    ".vddddddddv.a...",
+    "vddddccddddva...",
+    "vdddcccdddd.....",
+    ".vddddddddv.....",
+    "mmmmmmmmmmmmmmm.",
+    "mmmmmmmmmmmmkmm.",
+    "MMMMMMMMMMMMMMM.",
+    ".MM.........MM.."
   ]],
   zzz: [[
     ".LLLLLLLLL.",
