@@ -19,7 +19,7 @@ export const RULES = {
 };
 
 // One day's XP. contributions: GitHub contributions that day. runs: that day's runs and walks
-// ({ mi, type }: type "run" (the default) or "walk"; rides and the rest earn nothing yet).
+// ({ mi, type }: type "run" (the default) or "walk"; rides and workouts earn no XP yet, but they still keep a streak going).
 // streak: days in a row with activity, ending today (1 = just today).
 // A rest day earns nothing, streak bonus included.
 export function dayXp({ contributions = 0, runs = [], streak = 0 }) {

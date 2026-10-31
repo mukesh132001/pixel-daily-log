@@ -8,6 +8,7 @@
 
 import { GH_COLORS } from "./github.js";
 import { sfx } from "./sound.js";
+import { isRun } from "./runs.js";
 import { drawText } from "./font.js";
 import { FRAME_W, FRAME_H, ROWS, drawFrame, loadImage } from "./characters.js";
 
@@ -262,7 +263,7 @@ export function createScene(canvas) {
     parts = [];
     ghostX = W + 10;
     prTimer = day.pr ? 90 : 0;
-    const miles = (day.runs || []).reduce((s, r) => s + (r.mi || 0), 0);
+    const miles = (day.runs || []).filter(isRun).reduce((s, r) => s + (r.mi || 0), 0);   // a ride doesn't speed up the runner
     target = mode === "run" ? 0.9 + Math.min(miles, 6) * 0.16
            : mode === "walk" ? 0.36
            : mode === "attract" ? 1.1

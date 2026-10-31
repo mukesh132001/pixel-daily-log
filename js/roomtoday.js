@@ -10,13 +10,13 @@ const LONG_RUN_MI = 3.1;   // 5 km
 const STREAK_CANDLE = 3;   // the candle shows from a 3-day streak
 const NIGHT_HOUR = 21;     // after 9pm with nothing logged, the character gets sleepy
 
-// day: { count (GitHub contributions), level (GitHub's 0-4), pushed (a push today), runs (runs and walks),
+// day: { count (GitHub contributions), level (GitHub's 0-4), pushed (a push today), runs (every logged activity: runs, walks, rides, workouts),
 //        plays (Last.fm plays today) }
 // streak: the current streak in days. hour: 0-23, the viewer's local time.
 export function todayState({ count = 0, level = 0, pushed = false, runs = [], plays = 0 } = {}, streak = 0, hour = new Date().getHours()) {
   const coded = count > 0 || pushed;
   const ran = runs.some(r => isRun(r) && (Number(r.mi) || 0) > 0);
-  const quiet = !coded && !runs.some(r => (Number(r.mi) || 0) > 0);   // nothing logged yet (a walk counts)
+  const quiet = !coded && !runs.length;   // nothing logged yet (a walk, ride or workout counts)
   return {
     coded,
     level: coded ? Math.max(1, Math.min(4, level || 1)) : 0,
