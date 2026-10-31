@@ -1,10 +1,11 @@
 {
-  "note": "Props that show what you did TODAY. Same coordinates, layers and depth rules as sprites/room/room_manifest.json. sprite: a PNG in this folder, or null for the placeholder drawn in js/roomtoday.js (art names it). when: ran, longRun (a run of 3.1+ mi) or streak (3+ days). needs / without: a room piece that must (or must not) be in the room. label: draw that number next to the prop.",
+  "note": "Props that show what you did TODAY. Same coordinates, layers and depth rules as sprites/room/room_manifest.json. sprite: a PNG in this folder, or null for the placeholder drawn in js/roomtoday.js (art names it). when: ran, music (a Last.fm play today), longRun (a run of 3.1+ mi) or streak (3+ days). notes: floating music notes rise from this spot (dx, dy from the prop's top-left). needs / without: a room piece that must (or must not) be in the room. label: draw that number next to the prop.",
   "items": [
     { "id": "today_shoes", "art": "shoes", "sprite": null, "layer": "floor", "x": 60, "y": 165, "when": "ran" },
     { "id": "today_bottle", "art": "bottle", "sprite": null, "layer": "object", "x": 165, "y": 120, "depthY": 160.1, "when": "ran" },
     { "id": "today_medal", "art": "medal", "sprite": null, "layer": "wall", "x": 86, "y": 80, "when": "longRun" },
     { "id": "today_candle_shelf", "art": "candle", "sprite": null, "layer": "object", "x": 110, "y": 69, "depthY": 131.1, "when": "streak", "needs": "bookshelf", "label": "streak" },
+    { "id": "today_record_player", "art": "recordPlayer", "sprite": null, "layer": "object", "x": 177, "y": 160, "depthY": 171, "when": "music", "notes": { "dx": 8, "dy": -2 } },
     { "id": "today_candle_closet", "art": "candle", "sprite": null, "layer": "object", "x": 149, "y": 60, "depthY": 133.6, "when": "streak", "without": "bookshelf", "label": "streak" }
   ],
   "screen": {

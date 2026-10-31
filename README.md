@@ -29,7 +29,7 @@ https://mukesh132001.github.io/pixel-daily-log/?user=USERNAME
 Press **My room** for an isometric room (its own screen at `#room`) that you can walk around with the arrow keys or WASD, a touch pad on phones, or a click. It scales to the largest whole number that fits the screen and stays crisp. On small screens a camera follows your character.
 
 - **XP and levels:** a code day earns 10 XP plus 2 per contribution (up to 30). Runs earn 15 plus 5 per mile and walks 2 per mile (up to 50 a day together). Each streak day adds 5 (up to 25). Rest days earn nothing and cost nothing. The room has 10 levels, and new furniture drops in at each one, with a "Level up!" banner.
-- **Today in the room:** what you did today shows up: the monitor glows on a coding day, shoes and a water bottle after a run, a medal after a long one, a candle for a streak, and sleepy zzz at night.
+- **Today in the room:** what you did today shows up: the monitor glows on a coding day, shoes and a water bottle after a run, a medal after a long one, a candle for a streak, a record player with floating notes on days you played music, and sleepy zzz at night.
 - **Seasonal events:** decor like the Halloween set appears while its dates are on, with a one-time banner.
 - **The closet:** stand in front of it to open the character picker and step out in a new look.
 
@@ -43,13 +43,13 @@ After a **7-day streak** (your best streak counts, so the door never locks again
 
 ## Sign in (optional)
 
-You can use the site as a guest and everything works. If you sign in with your email (a magic link, no password), your profile (name, school, character, unlocks, streak log, XP, pets and GitHub username) is saved to your account so you can open it on any device. Strava tokens and runs never leave the browser that connected them. [privacy.html](privacy.html) says exactly what is saved and how to delete it.
+You can use the site as a guest and everything works. If you sign in with your email (a magic link, no password), your profile (name, school, character, unlocks, streak log, XP, pets, and your GitHub and Last.fm usernames) is saved to your account so you can open it on any device. Strava tokens and runs never leave the browser that connected them. [privacy.html](privacy.html) says exactly what is saved and how to delete it.
 
 ## What it shows
 
 - **GitHub:** contribution levels for each day, public activity (pushes, new repos, pull requests, issues), and commit messages loaded when you pick a day. It also lists the repos you were most active in. Long lists show 4 items with a "Show all" button.
 - **Runs:** connect Strava to see your real runs and walks, with your best and average pace over four weeks. You can also add runs by hand.
-- **Music:** coming in a later round through Last.fm.
+- **Music:** connect Last.fm (Spotify scrobbles to it) to see the selected day's soundtrack: number of plays, top artist, top 3 tracks, and what's playing right now on today. Days with plays get a small music note on the calendar, and your room gets a record player with floating notes. The Last.fm username is optional, and "Copy link" can include it so visitors see your music too.
 
 ## Accessibility
 
@@ -57,7 +57,7 @@ Sound is off by default. With reduced motion turned on, animations slow down ins
 
 ## How it works
 
-There's no build step and no framework: plain HTML, CSS and JavaScript modules. GitHub Pages serves the files as they are. One small Cloudflare Worker keeps the Strava secret and a GitHub token private, and Supabase stores profiles for signed-in people.
+There's no build step and no framework: plain HTML, CSS and JavaScript modules. GitHub Pages serves the files as they are. One small Cloudflare Worker keeps the Strava secret, a GitHub token and a Last.fm key private, and Supabase stores profiles for signed-in people.
 
 ```
 pixel-daily-log/
@@ -81,6 +81,7 @@ pixel-daily-log/
 │   ├── login.js        the Sign in / Account box
 │   ├── github.js       GitHub REST API and contribution levels
 │   ├── strava.js       Strava login, tokens and activities
+│   ├── lastfm.js       Last.fm plays, top artist and tracks, through the worker
 │   ├── runs.js         runs logged by hand, and pace math
 │   ├── art.js          the school pennant
 │   └── dates.js, font.js, icons.js, sound.js, storage.js   small helpers
@@ -119,6 +120,6 @@ On localhost, add `?dev` to the address to try things out without saving anythin
 3. Rooms, characters, XP and levels ✅
 4. Sign in and profiles that follow you ✅
 5. Pets and the pet room ✅
-6. Music through Last.fm
+6. Music through Last.fm ✅
 7. Talk to your character
 8. Friends: visit a friend's room and play together
