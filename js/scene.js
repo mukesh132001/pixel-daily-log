@@ -142,12 +142,15 @@ export function createScene(canvas) {
     px(0, GROUND + 12, W, H - GROUND - 12, P.field);
   }
 
-  // In the air: rise, peak, fall. On the ground: the run cycle, faster as speed goes up.
+  // In the air: rise, peak, fall. On the ground: the run cycle (about 100-120 ms a frame, a little faster as speed
+  // goes up). Frames 1 and 3 are the passing poses, so the body hops up 1px there, and the feet only kick up dust
+  // on the stride frames 0 and 2, at the moment the frame changes.
   function runner(feet) {
-    const per = Math.max(5, 10 - Math.round(speed * 2.5));
-    if (jumpY > 0) body("jump", jumpFrame(), FX, feet);
-    else body("run", reduced ? 0 : Math.floor(t / per) % 4, FX, feet);
-    if (!reduced && t % 6 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
+    const per = Math.max(6, 8 - Math.round(speed * 1.5));
+    if (jumpY > 0) { body("jump", jumpFrame(), FX, feet); return; }
+    const f = reduced ? 0 : Math.floor(t / per) % 4;
+    body("run", f, FX, feet - (f % 2 ? 1 : 0));
+    if (!reduced && t % per === 0 && f % 2 === 0) spawn(CX + 2, GROUND - 2, -speed * 0.6, -0.15, P.lane, "dust");
   }
 
   function drawCharacter() {
