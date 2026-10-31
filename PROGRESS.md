@@ -99,6 +99,11 @@ Last updated: Saturday, Oct 31, 2026. Update this file whenever a pull request i
   - **js/runs.js:** `kindOf()` says run, walk, ride or workout; only `Run`, `TrailRun` and `VirtualRun` are runs. Strava maps rides to `ride` and everything else to `workout` (time falls back to elapsed time)
   - **what shows:** runs, walks and rides show miles (shoe, walker, bike icons); a workout shows its name and minutes with a dumbbell ("Morning Stair-Stepper, 32 min"); the calendar tile shows the day's main activity icon
   - **what counts:** only runs feed pace, the weekly distance bars, the 4-week run miles, run unlocks, the running scene and the room's run props. Any logged activity keeps the streak going and counts as a logged day. Walks keep their XP; rides and workouts still earn no XP
+- **Also on `room-actions` (not merged yet): the bed and the desk do something.**
+  - **sleep:** stand at the bed and press the Sleep button (or E). Leo lies on the pillow (the front idle frame turned on its back, sheared along the bed) with the bed's own blanket redrawn over, little Zs float up, the room dims with a stepped glow around the lamp. Any key, click or tap stands Leo up next to the bed. Reduced motion: no Zs, the lights change at once
+  - **desk:** "Check my work" opens a pixel monitor (a dialog, Escape or the × closes it): contributions today, the streak and the 5 latest pushes (with commit messages), PRs opened or merged and new repos, each a link to GitHub in a new tab. It reads the activity the page already loaded; only the commit messages are fetched, and cached. In a peek the desk shows "See their work" for the visited person
+  - **art:** the new character sheets (run rows with arm swing and bounce, Leo's clear glasses) are committed as they were
+  - dev: `?dev` exposes `__room`, e.g. `__room.standAt("bed")` or `("desk")` to try them without walking
 
 
 ## 🧭 Decisions we made
