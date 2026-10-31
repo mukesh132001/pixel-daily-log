@@ -36,9 +36,13 @@
       <li><b>Your streak log</b>: the dates you logged a commit or a run, and your best streak.</li>
       <li><b>Your room’s XP</b>: one number per day for about the last two months (older days are added into a single total), the last room level you were shown, and the year you last saw each seasonal greeting (like “Happy Halloween!”).</li>
       <li><b>Your pets</b>: which pets you’ve adopted, the day, the XP they cost, and which ones are in your pet room.</li>
+      <li><b>Your Last.fm username</b>, if you add one for the Music card, and whether “Copy link” should include it.</li>
     </ul>
     <p>It never stores your Strava login, your Strava runs or your hand-logged runs; those stay in the browser where you added them.</p>
     <p>Accounts are run by <a href="https://supabase.com" rel="noopener">Supabase</a>, which hosts the database and sends the sign-in emails. The database only lets each person read and change their own saved profile.</p>
+
+    <h2>Music (Last.fm)</h2>
+    <p>If you add a Last.fm username, the Music card asks Last.fm, through our small server, for that person’s public listening: the plays on the day you pick. Nothing is stored there except a short-lived copy of the public answer, and your Last.fm password is never involved. If “Copy link” includes your username, anyone with the link can see your daily music, so you can switch that off in the Music card. Last.fm only shows plays if “Hide recent listening information” is off in your Last.fm privacy settings.</p>
 
     <h2>Deleting your data</h2>
     <ul>
