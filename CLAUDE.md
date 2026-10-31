@@ -60,7 +60,7 @@ sprites/petroom/    the pet room, exported from tools/dogroom in the same format
 sprites/pets/       Pixmod's pet pack (OK to commit): 22 dogs and cats, sheets/<id>.png of 8 frames at 21x21, drawn natively, feet on row 19 (sitA, sitB, blink, happy, eatA, eatB, sleepA, sleepB), pets.json (kind, rarity, cost)
 tools/              the Python art generators (dogroom, petpack), not part of the site
 sprites/today/      today_manifest.json: where the today props go (shoes, bottle, medal, candle, zzz), when they show, and the monitor screen's shape. "sprite": null = placeholder from roomtoday.js; drop in a PNG and name it there to swap
-js/runs.js          hand-logged runs and pace math
+js/runs.js          hand-logged runs and pace math, plus kindOf(): run, walk, ride or workout (only runs count as runs; workouts show minutes, not miles)
 js/icons.js         8x8 pixel SVG icons (shoe, laptop, flame, star, tape)
 js/dates.js         date helpers and the 4-week window
 js/storage.js       safe localStorage wrapper

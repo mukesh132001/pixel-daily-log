@@ -95,6 +95,10 @@ Last updated: Saturday, Oct 31, 2026. Update this file whenever a pull request i
   - **calendar:** a small music note on days with plays (counts fill in newest first, 3 at a time) and the tooltip says how many
   - **room:** a record player (placeholder in `roomtoday.js`, swappable via `sprites/today/today_manifest.json`) with three floating notes on days with plays; reduced motion slows them
   - dev: `?dev&lastfm=demo` (made-up plays), `?dev&today=music`
+- **Also on `workout-types` (not merged yet): activities that aren't runs.** Strava yoga, weights, stair stepper and friends used to show as runs with "0.00 mi".
+  - **js/runs.js:** `kindOf()` says run, walk, ride or workout; only `Run`, `TrailRun` and `VirtualRun` are runs. Strava maps rides to `ride` and everything else to `workout` (time falls back to elapsed time)
+  - **what shows:** runs, walks and rides show miles (shoe, walker, bike icons); a workout shows its name and minutes with a dumbbell ("Morning Stair-Stepper, 32 min"); the calendar tile shows the day's main activity icon
+  - **what counts:** only runs feed pace, the weekly distance bars, the 4-week run miles, run unlocks, the running scene and the room's run props. Any logged activity keeps the streak going and counts as a logged day. Walks keep their XP; rides and workouts still earn no XP
 
 
 ## 🧭 Decisions we made
