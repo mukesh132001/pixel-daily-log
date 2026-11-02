@@ -16,13 +16,13 @@ export function createPicker(els, onChoose) {
   ctx.imageSmoothingEnabled = false;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let i = 0, unlocked = {}, current = null, frame = 0, img = null, timer = null, closet = false;
+  let i = 0, unlocked = {}, current = null, frame = 0, img = null, timer = null;
 
   function draw() {
     ctx.clearRect(0, 0, FRAME_W, FRAME_H);
     if (!img) return;
     ctx.drawImage(img, frame * FRAME_W, 0, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
-    if (!closet && !isUnlocked(ROSTER[i], unlocked)) {
+    if (!isUnlocked(ROSTER[i], unlocked)) {
       ctx.globalCompositeOperation = "source-in";   // keep the shape, paint it all one dark color
       ctx.fillStyle = SILHOUETTE;
       ctx.fillRect(0, 0, FRAME_W, FRAME_H);
@@ -32,11 +32,10 @@ export function createPicker(els, onChoose) {
 
   function show(n) {
     i = (n + ROSTER.length) % ROSTER.length;
-    const c = ROSTER[i], open = closet || isUnlocked(c, unlocked);
+    const c = ROSTER[i], open = isUnlocked(c, unlocked);
     els.name.textContent = open ? c.name : "???";
-    els.count.textContent = `${i + 1} / ${ROSTER.length}`;
-    els.hint.textContent = !open ? "Locked. " + c.hint : c.id === current ? "You’re playing as " + c.name + "."
-      : closet ? "Try it on!" : "Unlocked!";
+    els.count.textContent = `${ROSTER.filter(x => isUnlocked(x, unlocked)).length} / ${ROSTER.length} unlocked`;
+    els.hint.textContent = !open ? "Locked. " + c.hint : c.id === current ? "You’re playing as " + c.name + "." : "Unlocked!";
     els.art.setAttribute("aria-label", open ? c.name + ", looking at you" : "A locked character, shown as a dark silhouette");
     if (!open && document.activeElement === els.go) els.next.focus();   // don't lose keyboard focus
     els.go.hidden = !open;
@@ -54,13 +53,12 @@ export function createPicker(els, onChoose) {
     els.art.style.width = `${(FRAME_W * k) / dpr}px`;
   }
 
-  // Open on your current character. dev: everything is unlocked for this visit only.
-  // fromCloset: opened from the room's closet, where every character is there to try on (no locks for now).
-  function open(currentId, unlockedNow, dev, fromCloset = false) {
+  // Open on your current character (the "Pick character" button and the room's closet both use this).
+  // dev: everything is unlocked for this visit only (?dev&roster=all), so say so.
+  function open(currentId, unlockedNow, dev) {
     current = currentId;
     unlocked = unlockedNow || {};
-    closet = fromCloset;
-    els.dev.hidden = !dev || closet;
+    els.dev.hidden = !dev;
     els.dialog.showModal();
     fit();
     show(Math.max(0, ROSTER.findIndex(c => c.id === currentId)));

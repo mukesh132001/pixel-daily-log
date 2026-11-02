@@ -15,7 +15,9 @@ import { createRoom } from "./room.js";
 import { createMonitor } from "./monitor.js";
 import { dayXp, streakEnding, updateLedger, totalXp, progress } from "./xp.js";
 import { todayState, DEV_DAYS } from "./roomtoday.js";
-import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule } from "./characters.js";
+import { ROSTER, DEFAULT_ID, byId, isUnlocked, meetsRule, loadImage, FRAME_W, FRAME_H } from "./characters.js";
+import { emptyRecord, addToRecord, deriveFacts } from "./unlocks.js";
+import { store, factsKey } from "./storage.js";
 import { createPicker } from "./picker.js";
 import { loadPetData, createAdoptPanel, roomPets, balance } from "./adopt.js";
 import { setupLogin, settleAccount, ask } from "./login.js";
@@ -48,10 +50,10 @@ const DEV_PETS = DEV && PARAMS.has("pets") ? (PARAMS.get("pets") === "none" ? "n
 // ?dev&lastfm=demo fills the Music card with made-up plays (no Worker, nothing saved).
 const DEV_LASTFM = DEV && PARAMS.get("lastfm") === "demo";
 if (DEV_LASTFM) lastfm.useDemo(true);
-const unlockedFor = me => (DEV ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
-const EVERYONE = Object.fromEntries(ROSTER.map(c => [c.id, "closet"]));
-// Your picked character, or the default for peeks and new players. (The closet lets you try on anyone for now,
-// so a pick isn't checked against your unlocks.)
+// ?dev&roster=all unlocks every character for this visit (nothing is saved). Plain ?dev checks unlocks for real.
+const DEV_ROSTER = DEV && PARAMS.get("roster") === "all";
+const unlockedFor = me => (DEV_ROSTER ? Object.fromEntries(ROSTER.map(c => [c.id, "dev"])) : (me && me.unlocked) || {});
+// Your picked character, or the default for peeks and new players.
 const characterFor = me => (me && byId(me.characterId)) || byId(DEFAULT_ID);
 scene.setCharacter(characterFor(loadProfile()));
 
@@ -80,14 +82,15 @@ function openMonitor() {
   sfx.select();
 }
 
-// The closet in your room opens the picker with every character in it, the desk its monitor.
+// The closet in your room opens the same character picker as the "Pick character" button, the desk its monitor.
 room.onAction((action, it) => {
   if (!S) return;
   if (action === "next_room") return goRoom(it.interact.to);   // a door
   if (action === "desk") return openMonitor();
   if (action !== "closet" || !S.me) return;
   fromCloset = true;
-  picker.open(characterFor(S.me).id, EVERYONE, false, true);
+  $("pickNew").hidden = $("roomNew").hidden = true;
+  picker.open(characterFor(S.me).id, unlockedFor(S.me), DEV_ROSTER);
   sfx.select();
 });
 
@@ -377,22 +380,29 @@ function dressPlayer() {
 // ---------- unlocking characters ----------
 
 // Adds the days you logged to your profile, then unlocks any character whose rule you now meet.
-// A day counts if it has a commit (GitHub contributions or a push) or any logged activity (a workout counts too). Unlocks are never taken away.
+// A day counts if it has a commit (GitHub contributions or a push) or any logged activity (a workout counts too).
+// Unlocks are never taken away. What it learns for the rules (commits, runs, late pushes) is added to a record that
+// stays in this browser (see unlocks.js), so rules that need more than the 4 weeks on screen still add up.
 function checkUnlocks() {
   const infos = DAYS.map((_, i) => info(i)).filter(x => !x.future);
   const logged = infos.filter(x => x.count > 0 || x.ev.some(e => e.type === "PushEvent") || x.runs.length > 0);
   let me = recordDays(S.me, logged.map(x => x.k));
 
   // The public feed has push times, not each commit's time, so a push counts as the commit.
+  // Runs are the Strava and hand-logged runs on any date (only Run, TrailRun and VirtualRun, see isRun).
   const pushes = [...S.events.values()].flat().filter(e => e.type === "PushEvent");
-  const weeks = [0, 1, 2, 3].map(w => infos.filter(x => Math.floor(x.i / 7) === w)
-    .reduce((n, x) => n + x.runs.filter(isRun).length, 0));
-  const facts = {
-    lateCommit: pushes.some(e => new Date(e.created_at).getHours() < 4),
-    bestStreak: me.log.best,
-    mostRunsInAWeek: Math.max(...weeks)
-  };
+  const runs = {};
+  [S.strava || {}, S.runs].forEach(byDay => Object.entries(byDay).forEach(([k, list]) => {
+    if (k <= TODAY_K) runs[k] = [...(runs[k] || []), ...list.filter(isRun)];
+  }));
+  const record = addToRecord(store.get(factsKey(me.id), null) || emptyRecord(), {
+    contrib: S.contribOk ? S.contrib : null, pushes, runs
+  });
+  store.set(factsKey(me.id), record);
+  const facts = deriveFacts(record, me, TODAY_K);
 
+  // Characters unlocked before this release were already celebrated.
+  const charsSeen = me.charsSeen || Object.keys(me.unlocked || {});
   const unlocked = { ...(me.unlocked || {}) };
   const fresh = ROSTER.filter(c => !isUnlocked(c, unlocked) && meetsRule(c.unlock, facts));
   fresh.forEach(c => (unlocked[c.id] = TODAY_K));
@@ -404,7 +414,7 @@ function checkUnlocks() {
   const keepHigher = (!!S.user && !S.contribOk) || S.stravaFailed;
   const xp = updateLedger(me.xp, fresher, { from, keepHigher, today: TODAY_K });
 
-  S.me = me = { ...me, unlocked, xp };
+  S.me = me = { ...me, unlocked, charsSeen, xp };
   saveProfile(me);
 
   if (fresh.length) {
@@ -458,8 +468,8 @@ function refreshLevel() {
 const BANNER_MS = 6000;
 const banners = [];
 let bannerTimer = null;
-function showBanner(title, text) {
-  banners.push({ title, text });
+function showBanner(title, text, charId = null) {
+  banners.push({ title, text, charId });
   if ($("roomBanner").hidden) nextBanner();
 }
 function nextBanner() {
@@ -470,7 +480,20 @@ function nextBanner() {
   $("bannerTitle").textContent = b.title;
   $("bannerText").textContent = b.text || "";
   $("bannerText").hidden = !b.text;
+  paintBannerArt(b.charId);
   bannerTimer = setTimeout(nextBanner, BANNER_MS);
+}
+// A character's front view on a banner (the "New character unlocked!" one); other banners hide the canvas.
+function paintBannerArt(charId) {
+  const art = $("bannerArt"), c = charId && byId(charId);
+  art.hidden = !c;
+  if (!c) return;
+  const ctx = art.getContext("2d");
+  art.width = FRAME_W;
+  art.height = FRAME_H;
+  ctx.imageSmoothingEnabled = false;
+  art.setAttribute("aria-label", c.name);
+  loadImage(c.front).then(img => ctx.drawImage(img, 0, 0, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H)).catch(e => console.warn(e.message));
 }
 $("roomBanner").addEventListener("click", nextBanner);
 
@@ -478,6 +501,7 @@ $("roomBanner").addEventListener("click", nextBanner);
 async function celebrate() {
   if (!S || !S.me) return;
   await levelUp();
+  unlockHello();
   await seasonHello();
 }
 
@@ -491,6 +515,16 @@ async function levelUp() {
   showBanner(`Level up! Lv ${level}`, ids.length ? `New in your room: ${pieceNames(ids)}.` : "More furniture is on the way.");
   if (!devLevel) room.popIn(ids);
   sfx.pr();
+}
+
+// "New character unlocked!" for each character earned since the last time we said so (charsSeen remembers, on any device).
+function unlockHello() {
+  const seen = new Set(S.me.charsSeen || []);
+  const fresh = ROSTER.filter(c => c.unlock.type !== "start" && S.me.unlocked[c.id] && !seen.has(c.id));
+  if (!fresh.length) return;
+  S.me = { ...S.me, charsSeen: [...seen, ...fresh.map(c => c.id)] };
+  saveProfile(S.me);
+  fresh.forEach(c => showBanner("New character unlocked!", `${c.name} is ready in your closet.`, c.id));
 }
 
 // A seasonal event's banner (its manifest's "banner", e.g. "Happy Halloween! 🎃"), once a year per event.
@@ -1295,7 +1329,7 @@ document.querySelectorAll(".tab").forEach(tab => {
 $("pick").addEventListener("click", () => {
   if (!S || !S.me) return;
   $("pickNew").hidden = $("roomNew").hidden = true;
-  picker.open(characterFor(S.me).id, unlockedFor(S.me), DEV);
+  picker.open(characterFor(S.me).id, unlockedFor(S.me), DEV_ROSTER);
   sfx.select();
 });
 
