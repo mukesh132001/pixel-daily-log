@@ -49,8 +49,9 @@ js/adopt.js         adopting pets: the rules (first pet free and common, the res
 js/roomtoday.js     what you did TODAY in the room: todayState() (coded/ran/long run/streak/quiet/night), which props show, the monitor glow looks, and placeholder art (text grids) for props without a PNG
 js/xp.js            XP and room levels: dayXp rules, LEVELS thresholds, the per-day ledger (profile.xp) and merging. Pure math, no DOM
 js/roomfloor.js     the room's 10x10 tile floor in manifest world units (x along the right wall, y along the left, 10 units a tile), blocked tiles, sliding collision, pathing
-js/characters.js    the character roster: id, display name, sprite paths, unlock rule (id is saved, name can change)
-js/picker.js        character select: one big front-facing character, arrows, silhouettes for locked ones
+js/characters.js    the character roster (21): id, display name, sprite paths, unlock rule as data `{ fact, min }` and a hint (id is saved, name can change)
+js/unlocks.js       the numbers the unlock rules ask about (commit streak, run miles, runs per week, holidays...). Adds each visit to a record kept in this browser only (`pdl:facts:<id>`, holds Strava runs, never synced). Pure math, no DOM
+js/picker.js        character select: one big front-facing character, arrows through all 21, "N / 21 unlocked", silhouettes + hints for locked ones. The room's closet opens the same picker
 sprites/characters/ Muki's own character pack (OK to commit): side sheets and front idles, 32x40 frames, feet on row 35
 js/art.js           the school pennant (drawPennant, cleanSchool). The old layered character and gallery.html were removed
 js/font.js          the A-Z pixel font
@@ -74,7 +75,7 @@ Test locally (modules need a server, double-clicking index.html won't work):
 cd ~/Downloads/pixel-daily-log
 python3 -m http.server 8000   # open http://localhost:8000, Ctrl + C to stop
 ```
-Open http://localhost:8000/?dev to unlock every character for that visit (localhost only, never saved). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, ?dev&xp=500 fakes your XP total for the visit, ?dev&event=halloween (or none) forces an event on or off, and ?dev&today=coded|ran|both|none previews your day (&hour=22 for the zzz, &streak=7 for the candle), and ?dev&pets=all|none gives you every pet or none (and opens the pet room's door), ?dev&lastfm=demo fills the Music card with made-up plays, and ?dev&today=music previews the record player. Nothing is saved.
+Open http://localhost:8000/?dev for the dev switches (localhost only, never saved). ?dev&roster=all unlocks every character for that visit (plain ?dev checks unlocks for real). In the room, ?dev also shows a level picker (1-5); ?dev&level=3#room opens straight at level 3, ?dev&xp=500 fakes your XP total for the visit, ?dev&event=halloween (or none) forces an event on or off, and ?dev&today=coded|ran|both|none previews your day (&hour=22 for the zzz, &streak=7 for the candle), and ?dev&pets=all|none gives you every pet or none (and opens the pet room's door), ?dev&lastfm=demo fills the Music card with made-up plays, and ?dev&today=music previews the record player. Nothing is saved.
 
 ## Rules you must follow
 
