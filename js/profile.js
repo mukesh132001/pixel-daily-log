@@ -13,6 +13,7 @@ const newId = () => "p_" + Array.from(crypto.getRandomValues(new Uint8Array(12))
 // The school and pet get filled in later. Their shapes:
 //   characterId: an id from the roster in characters.js (the character you picked)
 //   unlocked:  { night_owl: "2026-10-24", ... }   characters you've earned, and when. Never taken away.
+//   charsSeen: ["ben", ...]   unlocked characters we already showed "New character unlocked!" for (none are shown twice)
 //   log:       { days: ["2026-10-20", ...], best: 7 }   every day you logged (a commit or a run), and your best streak
 //   school:    { name, initials, c1, c2 }         (cleanSchool() in art.js makes it safe)
 //   pet:       { type, name }
@@ -31,6 +32,7 @@ export function newProfile(fields = {}) {
     school: null,
     characterId: "leo",
     unlocked: {},
+    charsSeen: [],
     log: { days: [], best: 0 },
     pet: null,
     github: null,
@@ -63,7 +65,7 @@ export function saveProfile(p, { quiet = false } = {}) {
 
 // The only fields that go to your account. Strava tokens and hand-logged runs aren't on the profile,
 // and anything added to it later stays in this browser until it's listed here.
-const CLOUD_FIELDS = ["v", "id", "name", "about", "school", "characterId", "unlocked", "log", "pet", "github", "createdAt", "xp", "levelSeen", "eventsSeen", "pets", "lastfm", "lastfmShare"];
+const CLOUD_FIELDS = ["v", "id", "name", "about", "school", "characterId", "unlocked", "charsSeen", "log", "pet", "github", "createdAt", "xp", "levelSeen", "eventsSeen", "pets", "lastfm", "lastfmShare"];
 export const cloudCopy = p => Object.fromEntries(CLOUD_FIELDS.filter(k => k in p).map(k => [k, p[k]]));
 
 // Two copies of the same profile (this browser and your account): keep base's choices, and everything
@@ -71,6 +73,7 @@ export const cloudCopy = p => Object.fromEntries(CLOUD_FIELDS.filter(k => k in p
 export function mergeProgress(base, other) {
   const merged = recordDays({ ...base, unlocked: { ...(other.unlocked || {}), ...(base.unlocked || {}) } },
     (other.log && Array.isArray(other.log.days)) ? other.log.days : []);
+  merged.charsSeen = [...new Set([...(base.charsSeen || []), ...(other.charsSeen || [])])];
   merged.log.best = Math.max(merged.log.best, (other.log && other.log.best) || 0);
   merged.xp = mergeLedgers(base.xp, other.xp);
   merged.levelSeen = Math.max(base.levelSeen || 1, other.levelSeen || 1);

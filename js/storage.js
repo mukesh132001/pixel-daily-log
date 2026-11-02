@@ -23,5 +23,7 @@ export const store = {
 
 // Runs are saved under a profile id (older ones under a GitHub username).
 export const runsKey = owner => "pdl:runs:" + owner.toLowerCase();
+// What character unlocks remember between visits (unlocks.js). Like runs, it stays in this browser.
+export const factsKey = owner => "pdl:facts:" + owner.toLowerCase();
 // Only read now, to move pre-profile players over.
 export const LAST_USER = "pdl:lastUser";
