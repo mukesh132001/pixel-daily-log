@@ -217,6 +217,8 @@ button,input{font:inherit;color:inherit}
 .room-banner{position:absolute;margin:0;left:50%;top:18px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;
   gap:2px;padding:8px 18px;text-align:center;width:max-content;max-width:calc(100% - 40px);cursor:pointer;animation:banner-in .35s steps(4) both}
 .room-banner[hidden]{display:none}
+.room-banner-art{display:block;width:64px;height:80px;image-rendering:pixelated;image-rendering:crisp-edges}   /* 2x the 32x40 art */
+.room-banner-art[hidden]{display:none}
 .room-banner-title{font-family:"Pixelify Sans",system-ui,sans-serif;font-size:1.6rem;color:var(--run);white-space:nowrap}
 @keyframes banner-in{from{transform:translate(-50%,-40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .room-dev{display:flex;align-items:center;gap:6px;font-size:1.1rem;flex:none}

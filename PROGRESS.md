@@ -105,6 +105,13 @@ Last updated: Saturday, Oct 31, 2026. Update this file whenever a pull request i
   - **art:** the new character sheets (run rows with arm swing and bounce, Leo's clear glasses) are committed as they were
   - dev: `?dev` exposes `__room`, e.g. `__room.standAt("bed")` or `("desk")` to try them without walking
 
+- **Also on `full-roster` (not merged yet): all 21 characters.** The 17 new front views are committed.
+  - **roster:** each rule is data, `unlock: { fact, min }`, in `js/characters.js` (hint text with it; Pip is secret, "???"). The numbers come from `deriveFacts()` in `js/unlocks.js`
+  - **history:** GitHub gives a year of daily contributions and ~90 days of pushes, Strava only 4 weeks, so every visit adds to a record kept in this browser only (`pdl:facts:<profile id>`: commits per day, late-night push timestamps, runs per day). It holds Strava runs, so it never goes to an account; only the unlocks sync. Days are only added or raised, so nothing is taken away
+  - **what counts:** "commits" are GitHub contributions per day (commits, PRs, issues, reviews), and a push counts as at least 1; "runs" are Run, TrailRun and VirtualRun and hand-logged runs; Kage and Night Owl use push time (midnight to 4am, local); Kira needs a Strava start time (hand-logged runs have none); Dre is 6.2 mi or more; Hana needs a run in each of 4 Mon-Sun weeks in a row; Walt is one year after `createdAt`; Pip is any logged day on Oct 31, Dec 25 or Jan 1
+  - **banner:** "New character unlocked!" with the front view, same banner as Level up (shows when you open your room). `charsSeen` on the profile (synced, merged) remembers who was announced; characters unlocked before this release count as already seen
+  - **picker:** arrows go through all 21, "12 / 21 unlocked" at the top, locked ones are dark silhouettes with "???" for a name and their hint. **The closet now opens the same picker, locks included** (before, it let you try everyone on)
+  - **dev:** `?dev&roster=all` unlocks everyone for the visit. Plain `?dev` no longer does, so real unlocks can be tested
 
 ## 🧭 Decisions we made
 
